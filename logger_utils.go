@@ -1,4 +1,4 @@
-package jnoronhautils
+package jnoronha_golangutils
 
 import "fmt"
 

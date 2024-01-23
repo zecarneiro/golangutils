@@ -1,68 +1,59 @@
-package jnoronhautils
+package jnoronha_golangutils
 
 import (
 	"io"
-	"io/ioutil"
+	"jnoronha_golangutils/entities"
 	"os"
 	"path/filepath"
 )
 
-type IFileInfo struct {
-	File      string
-	Directory string
+func ReadFile(file string) (string, error) {
+	body, err := os.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
+	return string(body), err
 }
-
-type IDirectoryInfo struct {
-	Files       []string
-	Directories []string
-}
-
-const (
-	FileTypeNone         = 0
-	FileTypeDirectory    = 1
-	FileTypeFile         = 2
-	FileTypeSymbolicLink = 3
-)
 
 func FileType(fileName string) (int, error) {
 	var typeFile int
 	file, err := os.Open(fileName)
 	if err != nil {
-		return FileTypeNone, err
+		return entities.FileTypeNone, err
 	}
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return FileTypeNone, err
+		return entities.FileTypeNone, err
 	}
 	if fileInfo.IsDir() {
-		typeFile = FileTypeDirectory
+		typeFile = entities.FileTypeDirectory
 	} else {
-		typeFile = FileTypeFile
+		typeFile = entities.FileTypeFile
 	}
 	defer file.Close()
 	return typeFile, nil
 }
 
-func ReadDir(dir string) ([]IFileInfo, error) {
-	var filesList []IFileInfo
-	files, err := ioutil.ReadDir(dir)
+func ReadDir(dir string) ([]entities.FileInfo, error) {
+	var filesList []entities.FileInfo
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		ErrorLog(err.Error(), false)
-		return []IFileInfo{}, err
+		return []entities.FileInfo{}, err
 	} else {
 		for _, file := range files {
 			if file.IsDir() {
-				filesList = append(filesList, IFileInfo{Directory: file.Name()})
+				filesList = append(filesList, entities.FileInfo{Directory: file.Name()})
 			} else {
-				filesList = append(filesList, IFileInfo{File: file.Name()})
+				filesList = append(filesList, entities.FileInfo{File: file.Name()})
 			}
 		}
 	}
 	return filesList, nil
 }
 
-func ReadDirRecursive(dir string) (IDirectoryInfo, error) {
-	files := IDirectoryInfo{Directories: []string{}, Files: []string{}}
+func ReadDirRecursive(dir string) (entities.DirectoryInfo, error) {
+	files := entities.DirectoryInfo{Directories: []string{}, Files: []string{}}
 	err := filepath.Walk(dir,
 		func(path string, _ os.FileInfo, err error) error {
 			if err != nil {
@@ -73,7 +64,7 @@ func ReadDirRecursive(dir string) (IDirectoryInfo, error) {
 				if err != nil {
 					return err
 				}
-				if info == FileTypeDirectory {
+				if info == entities.FileTypeDirectory {
 					files.Directories = append(files.Directories, path)
 				} else {
 					files.Files = append(files.Files, path)
@@ -83,7 +74,7 @@ func ReadDirRecursive(dir string) (IDirectoryInfo, error) {
 		},
 	)
 	if err != nil {
-		return IDirectoryInfo{}, err
+		return entities.DirectoryInfo{}, err
 	}
 	return files, nil
 }
