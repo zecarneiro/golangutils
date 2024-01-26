@@ -1,8 +1,8 @@
 package jnoronha_golangutils
 
 import (
+	"errors"
 	"jnoronha_golangutils/entities"
-	"log"
 	"runtime"
 	"strings"
 )
@@ -39,6 +39,6 @@ func IsUnix() bool {
 
 func ValidateSystem() {
 	if platform() == entities.NONE {
-		log.Fatalf("Unknown OS [" + strings.ToLower(runtime.GOOS) + "]")
+		ProcessError(errors.New("Unknown OS [" + strings.ToLower(runtime.GOOS) + "]"))
 	}
 }

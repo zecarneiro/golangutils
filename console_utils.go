@@ -15,10 +15,10 @@ func addShellCommand(commandInfo entities.CommandInfo) entities.CommandInfo {
 	if IsWindows() {
 		commandInfo.Cmd = "cmd.exe"
 		commandInfo.Args = append([]string{"/c", name}, commandInfo.Args...)
-	} else if IsUnix() || IsDarwin() || IsLinux() {
+	} /* else if IsUnix() || IsDarwin() || IsLinux() {
 		commandInfo.Cmd = "/bin/sh"
 		commandInfo.Args = append([]string{"-c", name}, commandInfo.Args...)
-	}
+	}*/
 	return commandInfo
 }
 
@@ -53,22 +53,33 @@ func ExecRealTime(commandInfo entities.CommandInfo) {
 	if commandInfo.Verbose {
 		PromptLog(commandStr)
 	}
+
+	// Create a pipe to capture the command's output
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error creating StdoutPipe:", err)
+		return
 	}
 
+	// Start the command
 	err = cmd.Start()
-	fmt.Println("The command is running")
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error starting command:", err)
+		return
 	}
 
-	// print the output of the subprocess
+	// Create a scanner to read from the command's output in real-time
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
-		m := scanner.Text()
-		fmt.Println(m)
+		fmt.Println(scanner.Text())
 	}
-	cmd.Wait()
+
+	// Wait for the command to finish
+	err = cmd.Wait()
+	if err != nil {
+		fmt.Println("Error waiting for command:", err)
+	}
+
+	// Close the pipe
+	stdout.Close()
 }

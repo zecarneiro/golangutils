@@ -17,8 +17,8 @@ func InArray[T any](arr []T, element T) bool {
 	return false
 }
 
-func ObjectToString[T any](data T) (string, error) {
-	jsonData, err := json.Marshal(data)
+func ObjectToString(data any) (string, error) {
+	jsonData, err := json.MarshalIndent(data, "", "  ")
 	return string(jsonData), err
 }
 
@@ -34,6 +34,6 @@ func IsNil[T any](arg *T) bool {
 
 func ProcessError(err error) {
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Panic(err.Error())
 	}
 }
