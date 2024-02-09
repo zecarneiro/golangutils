@@ -7,8 +7,15 @@ import (
 	"path/filepath"
 )
 
+func ResolvePath(path string) string {
+	if len(path) > 0 {
+		return filepath.FromSlash(path)
+	}
+	return ""
+}
+
 func ReadFile(file string) (string, error) {
-	body, err := os.ReadFile(file)
+	body, err := os.ReadFile(ResolvePath(file))
 	if err != nil {
 		return "", err
 	}
@@ -94,4 +101,9 @@ func IsDirEmpty(name string) (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+func FileExist(file string) bool {
+	_, err := os.Stat(ResolvePath(file))
+	return err == nil
 }
