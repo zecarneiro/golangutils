@@ -107,3 +107,12 @@ func FileExist(file string) bool {
 	_, err := os.Stat(ResolvePath(file))
 	return err == nil
 }
+
+func GetCurrentDir() string {
+	path, err := os.Getwd()
+	if err != nil {
+		ErrorLog(err.Error(), false)
+		path = ""
+	}
+	return path
+}

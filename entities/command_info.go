@@ -6,4 +6,5 @@ type CommandInfo struct {
 	Cwd              string
 	Verbose, IsThrow bool
 	UsePowerShell bool
+	EnvVars []string
 }

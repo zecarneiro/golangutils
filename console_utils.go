@@ -56,6 +56,7 @@ func ExecRealTime(commandInfo entities.CommandInfo) {
 	command := addShellCommand(commandInfo)
 	cmd = exec.Command(command.Cmd, command.Args...)
 	cmd.Dir = command.Cwd
+	cmd.Env = commandInfo.EnvVars
 	if commandInfo.Verbose {
 		PromptLog(commandStr)
 	}
