@@ -42,7 +42,7 @@ func InfoLog(data string, keepLine bool) {
 	LogLog(data, keepLine)
 }
 
-func SuccessLog(data string, keepLine bool) {
+func OkLog(data string, keepLine bool) {
 	LogLog(fmt.Sprintf("[%sOK%s] ", string(ColorGreen), string(ColorReset)), true)
 	LogLog(data, keepLine)
 }
@@ -50,4 +50,53 @@ func SuccessLog(data string, keepLine bool) {
 func PromptLog(data string) {
 	LogLog(fmt.Sprintf("%s>>>%s ", string(ColorGray), string(ColorReset)), true)
 	LogLog(data, false)
+}
+
+func TitleLog(data string) {
+	messageLen := len(data)
+	separator := ""
+	for i := 1; i < messageLen + 8; i++ {
+		separator = "#" + separator
+	}
+	LogLog(separator, false)
+	LogLog("## " + data + " ##", false)
+	LogLog(separator, false)
+}
+
+func HeaderLog(data string) {
+	LogLog("## " + data + " ##", false)
+}
+
+func Separatorlog(length int) {
+	data := "# "
+	if (length < 6) {
+		length = 6
+	}
+	for i := 1; i < length - 4; i++ {
+		data += "-"
+	}
+	data += " #"
+	LogLog(data, false)
+}
+
+func LogHelp(appName string, description string, usages []string,  args []string, others []string) {
+	LogLog(appName + " - " + description, false)
+	if len(usages) > 0 {
+		LogLog("USAGE: ", false)
+		for _, usage := range usages {
+			LogLog("\t" + appName + " " + usage, false)
+		}
+	}
+	if len(args) > 0 {
+		LogLog("ARGS: ", false)
+		args = append(args, "--help|-h: Show Help")
+		for _, arg := range args {
+			LogLog("\t" + arg, false)
+		}
+	}
+	if len(others) > 0 {
+		for _, other := range others {
+			LogLog("\t" + other, false)
+		}
+	}
 }

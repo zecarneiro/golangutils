@@ -66,8 +66,12 @@ func Download(url string, destFile string) entities.Response[bool] {
 	return entities.Response[bool]{Data: true}
 }
 
-func Confirm(message string) bool {
-	fmt.Printf("%s [y/n]: ", message)
+func Confirm(message string, isNoDefault bool) bool {
+	yesNoMsg := "[y/N]"
+	if !isNoDefault {
+		yesNoMsg = "[Y/n]"
+	}
+	fmt.Printf("%s %s?: ", message, yesNoMsg)
 	var response string
 	fmt.Scanln(&response)
 	if response == "Y" || response == "y" {

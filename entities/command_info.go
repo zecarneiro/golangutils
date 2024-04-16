@@ -5,4 +5,5 @@ type CommandInfo struct {
 	Args             []string
 	Cwd              string
 	Verbose, IsThrow bool
+	UsePowerShell bool
 }

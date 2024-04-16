@@ -13,8 +13,14 @@ func addShellCommand(commandInfo entities.CommandInfo) entities.CommandInfo {
 	ValidateSystem()
 	name := commandInfo.Cmd
 	if IsWindows() {
-		commandInfo.Cmd = "cmd.exe"
-		commandInfo.Args = append([]string{"/c", name}, commandInfo.Args...)
+		if !commandInfo.UsePowerShell {
+			commandInfo.Cmd = "cmd.exe"
+			commandInfo.Args = append([]string{"/c",  name}, commandInfo.Args...)
+		} else {
+			commandInfo.Cmd = "powershell.exe"
+			commandInfo.Args = append([]string{name}, commandInfo.Args...)
+		}
+		
 	} /* else if IsUnix() || IsDarwin() || IsLinux() {
 		commandInfo.Cmd = "/bin/sh"
 		commandInfo.Args = append([]string{"-c", name}, commandInfo.Args...)
@@ -83,3 +89,15 @@ func ExecRealTime(commandInfo entities.CommandInfo) {
 	// Close the pipe
 	stdout.Close()
 }
+
+func Which(cmd string) []string {
+	commandInfo := entities.CommandInfo{Verbose: false, IsThrow: false}
+	if IsWindows() {
+		commandInfo.Cmd = "Get-Command " + cmd + " | Select-Object -ExpandProperty Definition"
+		commandInfo.UsePowerShell = true
+	} else {
+		commandInfo.Cmd = "which " + cmd
+	}
+	response := Exec(commandInfo)
+	return strings.Split(response.Data, SystemInfo().Eol);
+} 
