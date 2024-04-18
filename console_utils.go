@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"jnoronha_golangutils/entities"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -61,34 +62,16 @@ func ExecRealTime(commandInfo entities.CommandInfo) {
 		PromptLog(commandStr)
 	}
 
-	// Create a pipe to capture the command's output
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Println("Error creating StdoutPipe:", err)
-		return
-	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 
 	// Start the command
-	err = cmd.Start()
+	err := cmd.Run()
 	if err != nil {
 		fmt.Println("Error starting command:", err)
 		return
 	}
-
-	// Create a scanner to read from the command's output in real-time
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
-	}
-
-	// Wait for the command to finish
-	err = cmd.Wait()
-	if err != nil {
-		fmt.Println("Error waiting for command:", err)
-	}
-
-	// Close the pipe
-	stdout.Close()
 }
 
 func Which(cmd string) []string {
@@ -101,4 +84,40 @@ func Which(cmd string) []string {
 	}
 	response := Exec(commandInfo)
 	return strings.Split(response.Data, SystemInfo().Eol);
-} 
+}
+
+func Confirm(message string, isNoDefault bool) bool {
+	yesNoMsg := "[y/N]"
+	if !isNoDefault {
+		yesNoMsg = "[Y/n]"
+	}
+	fmt.Printf("%s %s?: ", message, yesNoMsg)
+	var response string
+	fmt.Scanln(&response)
+	if response == "Y" || response == "y" {
+		return true
+	}
+	return false
+}
+
+func ConfirmOrExit(message string, isNoDefault bool) bool {
+	yesNoMsg := "[y/N/0(Exit)]"
+	if !isNoDefault {
+		yesNoMsg = "[Y/n/0(Exit)]"
+	}
+	fmt.Printf("%s %s?: ", message, yesNoMsg)
+	var response string
+	fmt.Scanln(&response)
+	if response == "0" {
+		os.Exit(0)
+	}
+	if response == "Y" || response == "y" {
+		return true
+	}
+	return false
+}
+
+func WaitForAnyKeyPressed(message string) {
+	LogLog(message, true)
+	bufio.NewReader(os.Stdin).ReadBytes('\n') 
+}

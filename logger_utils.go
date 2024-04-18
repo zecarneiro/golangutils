@@ -55,7 +55,7 @@ func PromptLog(data string) {
 func TitleLog(data string) {
 	messageLen := len(data)
 	separator := ""
-	for i := 1; i < messageLen + 8; i++ {
+	for i := 1; i < messageLen + 7; i++ {
 		separator = "#" + separator
 	}
 	LogLog(separator, false)

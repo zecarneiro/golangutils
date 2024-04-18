@@ -1,6 +1,6 @@
 package entities
 
 type FileInfo struct {
-	File      string
-	Directory string
+	File      []string
+	Directory []string
 }

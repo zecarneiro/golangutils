@@ -2,13 +2,15 @@ package jnoronha_golangutils
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"jnoronha_golangutils/entities"
 	"log"
 	"net/http"
 	"os"
 	"reflect"
+	"strings"
+	"time"
 )
 
 func InArray[T any](arr []T, element T) bool {
@@ -20,6 +22,16 @@ func InArray[T any](arr []T, element T) bool {
 		}
 	}
 	return false
+}
+
+func FilterArray[T any](array []T, fun func(T) bool) []T {
+	var newArr []T
+	for _, element := range array {
+			if fun(element) {
+				newArr = append(newArr, element)
+			}
+	}
+	return newArr
 }
 
 func ObjectToString(data any) (string, error) {
@@ -66,16 +78,49 @@ func Download(url string, destFile string) entities.Response[bool] {
 	return entities.Response[bool]{Data: true}
 }
 
-func Confirm(message string, isNoDefault bool) bool {
-	yesNoMsg := "[y/N]"
-	if !isNoDefault {
-		yesNoMsg = "[Y/n]"
+func StringReplaceAll(data string, replacer map[string]string) string {
+	var newData = data
+	if len(replacer) > 0 {
+		for key, value := range replacer {
+			newData = strings.Replace(newData, key, value, -1)
+		}
 	}
-	fmt.Printf("%s %s?: ", message, yesNoMsg)
-	var response string
-	fmt.Scanln(&response)
-	if response == "Y" || response == "y" {
-		return true
+	return newData
+}
+
+// Example: map[string]interface{}{"FUNC_NAME": FUNC, "FUNC_NAME_1": FUNC_1, ....}
+func FuncCall[T interface{}](funcName string, callerStorage map[string]interface{}, params ... interface{}) (T, error) {
+	var in []reflect.Value = []reflect.Value{}
+	var result T
+	var err error
+	funcRef := reflect.ValueOf(callerStorage[funcName])
+	if len(params) > 0 {
+		if len(params) != funcRef.Type().NumIn() {
+			err = errors.New("The number of params is out of index.")
+		}
 	}
-	return false
+	if err == nil {
+		in = make([]reflect.Value, len(params))
+		for k, param := range params {
+			in[k] = reflect.ValueOf(param)
+		}
+		res := funcRef.Call(in)
+		if res != nil {
+			result = res[0].Interface().(T)
+		}
+	}
+	return result, err
+}
+
+func HasInternet() bool {
+	timeout := time.Duration(5000 * time.Millisecond)
+	client := http.Client{
+		Timeout: timeout,
+	}
+	//default url to check connection is http://google.com
+	_, err := client.Get("https://google.com")
+	if err != nil {
+		return false
+	}
+	return true
 }

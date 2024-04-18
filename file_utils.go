@@ -1,9 +1,12 @@
 package jnoronha_golangutils
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
 	"jnoronha_golangutils/entities"
 	"os"
+	"path"
 	"path/filepath"
 )
 
@@ -20,6 +23,33 @@ func ReadFile(file string) (string, error) {
 		return "", err
 	}
 	return string(body), err
+}
+
+func WriteFile(file string, data string, isAppend bool) bool {
+	var status = true
+	var fileStream *os.File
+	var err error
+	file = ResolvePath(file)
+	if isAppend && FileExist(file) {
+		fileStream, err = os.OpenFile("lines", os.O_APPEND|os.O_WRONLY, 0644)
+	} else {
+		fileStream, err = os.Create(file)
+	}
+	if err != nil {
+		ErrorLog(err.Error(), false)
+		fileStream.Close()
+		return false
+	}
+	if status {
+		_, err = fmt.Fprintln(fileStream, data)
+		if err != nil {
+			ErrorLog(err.Error(), false)
+			fileStream.Close()
+			return false
+		}
+	}
+	fileStream.Close()
+	return true
 }
 
 func FileType(fileName string) (int, error) {
@@ -41,22 +71,22 @@ func FileType(fileName string) (int, error) {
 	return typeFile, nil
 }
 
-func ReadDir(dir string) ([]entities.FileInfo, error) {
-	var filesList []entities.FileInfo
+func ReadDir(dir string) (entities.FileInfo, error) {
+	var filesData entities.FileInfo
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		ErrorLog(err.Error(), false)
-		return []entities.FileInfo{}, err
+		return entities.FileInfo{}, err
 	} else {
 		for _, file := range files {
 			if file.IsDir() {
-				filesList = append(filesList, entities.FileInfo{Directory: file.Name()})
+				filesData.Directory = append(filesData.Directory, file.Name())
 			} else {
-				filesList = append(filesList, entities.FileInfo{File: file.Name()})
+				filesData.File = append(filesData.File, file.Name())
 			}
 		}
 	}
-	return filesList, nil
+	return filesData, nil
 }
 
 func ReadDirRecursive(dir string) (entities.DirectoryInfo, error) {
@@ -115,4 +145,102 @@ func GetCurrentDir() string {
 		path = ""
 	}
 	return path
+}
+
+func ReadJsonFile[T any](jsonFile string) (T, error) {
+	data, err := ReadFile(jsonFile)
+	if err != nil {
+		ErrorLog(err.Error(), false)
+	}
+	return StringToObject[T](data)
+}
+
+func WriteJsonFile[T any](jsonFile string, data T) bool {
+	dataStr, err := ObjectToString(data)
+	if err != nil {
+		ErrorLog(err.Error(), false)
+		return false
+	}
+	return WriteFile(jsonFile, dataStr, false)
+}
+
+func DeleteDirectory(directory string) bool {
+	directory = ResolvePath(directory)
+	err := os.RemoveAll(directory)
+	if err != nil {
+		ErrorLog(err.Error(), false)
+		return false
+	}
+	return true
+}
+
+func DeleteFile(file string) bool {
+	file = ResolvePath(file)
+	err := os.Remove(file)
+	if err != nil {
+		ErrorLog(err.Error(), false)
+		return false
+	}
+	return true
+}
+
+func CopyFile(src string, dst string) error {
+	var err error
+	var srcfd *os.File
+	var dstfd *os.File
+	var srcinfo os.FileInfo
+	src = ResolvePath(src)
+	dst = ResolvePath(dst)
+	if srcfd, err = os.Open(src); err != nil {
+		return err
+	}
+	defer srcfd.Close()
+
+	if dstfd, err = os.Create(dst); err != nil {
+		return err
+	}
+	defer dstfd.Close()
+
+	if _, err = io.Copy(dstfd, srcfd); err != nil {
+		return err
+	}
+	if srcinfo, err = os.Stat(src); err != nil {
+		return err
+	}
+	return os.Chmod(dst, srcinfo.Mode())
+}
+
+func CopyDir(src string, dst string) error {
+	var err error
+	var fds []os.FileInfo
+	var srcinfo os.FileInfo
+	src = ResolvePath(src)
+	dst = ResolvePath(dst)
+
+	if srcinfo, err = os.Stat(src); err != nil {
+		return err
+	}
+
+	if err = os.MkdirAll(dst, srcinfo.Mode()); err != nil {
+		return err
+	}
+
+	if fds, err = ioutil.ReadDir(src); err != nil {
+		return err
+	}
+	for _, fd := range fds {
+		srcfp := path.Join(src, fd.Name())
+		dstfp := path.Join(dst, fd.Name())
+
+		if fd.IsDir() {
+			if err = CopyDir(srcfp, dstfp); err != nil {
+				fmt.Println(err)
+			}
+		} else {
+			if err = CopyFile(srcfp, dstfp); err != nil {
+				fmt.Println(err)
+			}
+		}
+	}
+	return nil
 }
