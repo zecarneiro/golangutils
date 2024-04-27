@@ -1,10 +1,10 @@
-package jnoronha_golangutils
+package jnoronhautils
 
 import (
 	"encoding/json"
 	"errors"
 	"io"
-	"jnoronha_golangutils/entities"
+	"jnoronhautils/entities"
 	"log"
 	"net/http"
 	"os"
@@ -27,9 +27,9 @@ func InArray[T any](arr []T, element T) bool {
 func FilterArray[T any](array []T, fun func(T) bool) []T {
 	var newArr []T
 	for _, element := range array {
-			if fun(element) {
-				newArr = append(newArr, element)
-			}
+		if fun(element) {
+			newArr = append(newArr, element)
+		}
 	}
 	return newArr
 }
@@ -89,11 +89,11 @@ func StringReplaceAll(data string, replacer map[string]string) string {
 }
 
 // Example: map[string]interface{}{"FUNC_NAME": FUNC, "FUNC_NAME_1": FUNC_1, ....}
-func FuncCall[T interface{}](funcName string, callerStorage map[string]interface{}, params ... interface{}) (T, error) {
+func FuncCall[T interface{}](caller interface{}, params ...interface{}) (T, error) {
 	var in []reflect.Value = []reflect.Value{}
 	var result T
 	var err error
-	funcRef := reflect.ValueOf(callerStorage[funcName])
+	funcRef := reflect.ValueOf(caller)
 	if len(params) > 0 {
 		if len(params) != funcRef.Type().NumIn() {
 			err = errors.New("The number of params is out of index.")

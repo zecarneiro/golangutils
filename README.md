@@ -1,11 +1,7 @@
 # Golang Utils
 
-To use this library on your project, you need to:
+To use this library on your project, you need to run commands on root of your project:
 
-1. Create file `go.work` on root of your project or locations of your main file
-2. Apend on `go.work`
-```
-...
-use path/to/this-library
-...
-```
+1. `go work init`
+2. `go work use .`
+3. `go work use path/to/golang-utils` 

@@ -1,3 +1,3 @@
-module jnoronha_golangutils
+module jnoronhautils
 
 go 1.18

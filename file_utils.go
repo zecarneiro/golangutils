@@ -1,10 +1,11 @@
-package jnoronha_golangutils
+package jnoronhautils
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"jnoronha_golangutils/entities"
+	"jnoronhautils/entities"
 	"os"
 	"path"
 	"path/filepath"
@@ -243,4 +244,39 @@ func CopyDir(src string, dst string) error {
 		}
 	}
 	return nil
+}
+
+func GetExecutableDir() string {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		ErrorLog(err.Error(), false)
+		dir = ""
+	}
+	return dir
+}
+
+func ReadFileInByte(filename string) []byte {
+	file, err := os.Open(ResolvePath(filename))
+	if err != nil {
+		file.Close()
+		ErrorLog(err.Error(), false)
+		return []byte{}
+	}
+	defer file.Close()
+
+	// Get the file size
+	stat, err := file.Stat()
+	if err != nil {
+		ErrorLog(err.Error(), false)
+		return []byte{}
+	}
+
+	// Read the file into a byte slice
+	byteArr := make([]byte, stat.Size())
+	_, err = bufio.NewReader(file).Read(byteArr)
+	if err != nil && err != io.EOF {
+		ErrorLog(err.Error(), false)
+		return []byte{}
+	}
+	return byteArr
 }

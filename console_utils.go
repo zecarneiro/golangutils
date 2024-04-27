@@ -1,9 +1,9 @@
-package jnoronha_golangutils
+package jnoronhautils
 
 import (
 	"bufio"
 	"fmt"
-	"jnoronha_golangutils/entities"
+	"jnoronhautils/entities"
 	"log"
 	"os"
 	"os/exec"
@@ -16,16 +16,16 @@ func addShellCommand(commandInfo entities.CommandInfo) entities.CommandInfo {
 	if IsWindows() {
 		if !commandInfo.UsePowerShell {
 			commandInfo.Cmd = "cmd.exe"
-			commandInfo.Args = append([]string{"/c",  name}, commandInfo.Args...)
+			commandInfo.Args = append([]string{"/c", name}, commandInfo.Args...)
 		} else {
 			commandInfo.Cmd = "powershell.exe"
 			commandInfo.Args = append([]string{name}, commandInfo.Args...)
 		}
-		
-	} /* else if IsUnix() || IsDarwin() || IsLinux() {
-		commandInfo.Cmd = "/bin/sh"
+
+	} else if commandInfo.UseBash {
+		commandInfo.Cmd = "/bin/bash"
 		commandInfo.Args = append([]string{"-c", name}, commandInfo.Args...)
-	}*/
+	}
 	return commandInfo
 }
 
@@ -33,10 +33,15 @@ func Exec(commandInfo entities.CommandInfo) entities.Response[string] {
 	var output []byte
 	var cmd *exec.Cmd
 	var err error
-	var commandStr string = fmt.Sprintf("%s %s", commandInfo.Cmd, strings.Join(commandInfo.Args, " "))
 	command := addShellCommand(commandInfo)
-	cmd = exec.Command(command.Cmd, command.Args...)
+	if len(command.Args) > 0 {
+		cmd = exec.Command(command.Cmd, command.Args...)
+	} else {
+		cmd = exec.Command(command.Cmd)
+	}
 	cmd.Dir = commandInfo.Cwd
+	cmd.Env = commandInfo.EnvVars
+	var commandStr string = fmt.Sprintf("%s %s", command.Cmd, strings.Join(command.Args, " "))
 	if commandInfo.Verbose {
 		PromptLog(commandStr)
 	}
@@ -53,11 +58,15 @@ func Exec(commandInfo entities.CommandInfo) entities.Response[string] {
 
 func ExecRealTime(commandInfo entities.CommandInfo) {
 	var cmd *exec.Cmd
-	var commandStr string = fmt.Sprintf("%s %s", commandInfo.Cmd, strings.Join(commandInfo.Args, " "))
 	command := addShellCommand(commandInfo)
-	cmd = exec.Command(command.Cmd, command.Args...)
+	if len(command.Args) > 0 {
+		cmd = exec.Command(command.Cmd, command.Args...)
+	} else {
+		cmd = exec.Command(command.Cmd)
+	}
 	cmd.Dir = command.Cwd
 	cmd.Env = commandInfo.EnvVars
+	var commandStr string = fmt.Sprintf("%s %s", command.Cmd, strings.Join(command.Args, " "))
 	if commandInfo.Verbose {
 		PromptLog(commandStr)
 	}
@@ -83,7 +92,7 @@ func Which(cmd string) []string {
 		commandInfo.Cmd = "which " + cmd
 	}
 	response := Exec(commandInfo)
-	return strings.Split(response.Data, SystemInfo().Eol);
+	return strings.Split(response.Data, SystemInfo().Eol)
 }
 
 func Confirm(message string, isNoDefault bool) bool {
@@ -119,5 +128,5 @@ func ConfirmOrExit(message string, isNoDefault bool) bool {
 
 func WaitForAnyKeyPressed(message string) {
 	LogLog(message, true)
-	bufio.NewReader(os.Stdin).ReadBytes('\n') 
+	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }

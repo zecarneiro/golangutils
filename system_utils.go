@@ -1,12 +1,12 @@
-package jnoronha_golangutils
+package jnoronhautils
 
 import (
 	"errors"
-	"jnoronha_golangutils/entities"
+	"jnoronhautils/entities"
+	"jnoronhautils/enums"
 	"os"
 	"os/user"
 	"runtime"
-	"strings"
 )
 
 func SystemInfo() entities.SystemInfo {
@@ -39,8 +39,6 @@ func platform() int {
 		return entities.DARWIN
 	} else if runtime.GOOS == "linux" {
 		return entities.LINUX
-	} else if runtime.GOOS == "unix" {
-		return entities.UNIX
 	} else {
 		return entities.NONE
 	}
@@ -58,12 +56,32 @@ func IsLinux() bool {
 	return platform() == entities.LINUX
 }
 
-func IsUnix() bool {
-	return platform() == entities.UNIX
-}
-
 func ValidateSystem() {
 	if platform() == entities.NONE {
-		ProcessError(errors.New("Unknown OS [" + strings.ToLower(runtime.GOOS) + "]"))
+		ProcessError(errors.New(enums.UNKNOW_OS_MSG))
 	}
+}
+
+func Reboot() error {
+	var cmdInfo entities.CommandInfo
+	if IsWindows() {
+		cmdInfo = entities.CommandInfo{
+			Cmd:     "shutdown",
+			Args:    []string{"/r", "/t", "0"},
+			EnvVars: os.Environ(),
+		}
+	} else if IsLinux() {
+		cmdInfo = entities.CommandInfo{
+			Cmd:     "sudo",
+			Args:    []string{"shutdown", "-r", "now"},
+			EnvVars: os.Environ(),
+		}
+	} else if IsDarwin() {
+		return errors.New(enums.NOT_IMPLEMENTED_YET_MSG)
+	}
+	if Confirm("Will be restart PC. Continue", true) {
+		ExecRealTime(cmdInfo)
+	}
+
+	return nil
 }
