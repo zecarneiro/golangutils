@@ -58,7 +58,8 @@ func IsLinux() bool {
 
 func ValidateSystem() {
 	if platform() == entities.NONE {
-		ProcessError(errors.New(enums.UNKNOW_OS_MSG))
+		ErrorLog(enums.UNKNOW_OS_MSG, false)
+		os.Exit(1)
 	}
 }
 
@@ -81,7 +82,7 @@ func Reboot() error {
 	}
 	if Confirm("Will be restart PC. Continue", true) {
 		ExecRealTime(cmdInfo)
+		os.Exit(0)
 	}
-
 	return nil
 }

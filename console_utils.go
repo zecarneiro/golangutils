@@ -19,7 +19,8 @@ func addShellCommand(commandInfo entities.CommandInfo) entities.CommandInfo {
 			commandInfo.Args = append([]string{"/c", name}, commandInfo.Args...)
 		} else {
 			commandInfo.Cmd = "powershell.exe"
-			commandInfo.Args = append([]string{name}, commandInfo.Args...)
+			commandInfo.Args = append([]string{"-Command", "{", name}, commandInfo.Args...)
+			commandInfo.Args = append(commandInfo.Args, "}")
 		}
 
 	} else if commandInfo.UseBash {
