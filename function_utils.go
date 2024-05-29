@@ -49,6 +49,14 @@ func IsNil[T any](arg *T) bool {
 	return arg == nil
 }
 
+func HasAndLogError(err error) bool {
+	if err != nil {
+		ErrorLog(err.Error(), false)
+		return true
+	}
+	return false
+}
+
 func ProcessError(err error) {
 	if err != nil {
 		log.Panic(err.Error())
@@ -123,4 +131,32 @@ func HasInternet() bool {
 		return false
 	}
 	return true
+}
+
+func RemoveDuplicate[T comparable](sliceList []T) []T {
+	allKeys := make(map[T]bool)
+	list := []T{}
+	for _, item := range sliceList {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
+}
+
+func GetSubstring(str string, start int, end int) string {
+	newStr := ""
+	index := 0
+	for _, character := range str {
+		if index > end {
+			break
+		}
+		if index >= start {
+			byteChar := byte(character)
+			newStr += string(byteChar)
+		}
+		index++
+	}
+	return newStr
 }

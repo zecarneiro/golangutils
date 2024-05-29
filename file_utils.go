@@ -2,10 +2,12 @@ package jnoronhautils
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"jnoronhautils/entities"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -279,4 +281,18 @@ func ReadFileInByte(filename string) []byte {
 		return []byte{}
 	}
 	return byteArr
+}
+
+func CreateDirectory(dir string, recursive bool) {
+	if _, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
+		var err error
+		if recursive {
+			err = os.MkdirAll(dir, os.ModePerm)
+		} else {
+			err = os.Mkdir(dir, os.ModePerm)
+		}
+		if err != nil {
+			log.Println(err)
+		}
+	}
 }
