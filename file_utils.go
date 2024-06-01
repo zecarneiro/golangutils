@@ -28,6 +28,21 @@ func ReadFile(file string) (string, error) {
 	return string(body), err
 }
 
+func ReadFileLineByLine(filePath string, callback func(string, error)) {
+	file, err := os.Open(ResolvePath(filePath))
+	if err != nil {
+		callback("", err)
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		callback(line, nil)
+	}
+	if scanner.Err() != nil {
+		callback("", scanner.Err())
+	}
+}
+
 func WriteFile(file string, data string, isAppend bool) bool {
 	var status = true
 	var fileStream *os.File
