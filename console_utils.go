@@ -2,7 +2,9 @@ package jnoronhautils
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"jnoronhautils/entities"
 	"log"
 	"os"
@@ -10,31 +12,9 @@ import (
 	"strings"
 )
 
-func addShellCommand(commandInfo entities.CommandInfo) entities.CommandInfo {
-	ValidateSystem()
-	name := commandInfo.Cmd
-	if IsWindows() {
-		if !commandInfo.UsePowerShell {
-			commandInfo.Cmd = "cmd.exe"
-			commandInfo.Args = append([]string{"/c", name}, commandInfo.Args...)
-		} else {
-			commandInfo.Cmd = "powershell.exe"
-			commandInfo.Args = append([]string{"-Command", "{", name}, commandInfo.Args...)
-			commandInfo.Args = append(commandInfo.Args, "}")
-		}
-
-	} else if commandInfo.UseBash {
-		commandInfo.Cmd = "/bin/bash"
-		commandInfo.Args = append([]string{"-c", name}, commandInfo.Args...)
-	}
-	return commandInfo
-}
-
-func Exec(commandInfo entities.CommandInfo) entities.Response[string] {
-	var output []byte
+func buildCmd(commandInfo entities.CommandInfo) *exec.Cmd {
 	var cmd *exec.Cmd
-	var err error
-	command := addShellCommand(commandInfo)
+	command := AddShellCommand(commandInfo)
 	if len(command.Args) > 0 {
 		cmd = exec.Command(command.Cmd, command.Args...)
 	} else {
@@ -42,10 +22,38 @@ func Exec(commandInfo entities.CommandInfo) entities.Response[string] {
 	}
 	cmd.Dir = commandInfo.Cwd
 	cmd.Env = commandInfo.EnvVars
-	var commandStr string = fmt.Sprintf("%s %s", command.Cmd, strings.Join(command.Args, " "))
 	if commandInfo.Verbose {
-		PromptLog(commandStr)
+		PromptLog(GetCommandToRun(command))
 	}
+	return cmd
+}
+
+func AddShellCommand(commandInfo entities.CommandInfo) entities.CommandInfo {
+	ValidateSystem()
+	cmdStr := fmt.Sprintf("%s %s", commandInfo.Cmd, strings.Join(commandInfo.Args, " "))
+	if IsWindows() {
+		if !commandInfo.UsePowerShell {
+			commandInfo.Cmd = "cmd.exe"
+			commandInfo.Args = []string{"/c", cmdStr}
+		} else {
+			commandInfo.Cmd = "powershell.exe"
+			commandInfo.Args = []string{cmdStr}
+		}
+	} else if commandInfo.UseBash {
+		commandInfo.Cmd = "/bin/bash"
+		commandInfo.Args = []string{"-c", cmdStr}
+	}
+	return commandInfo
+}
+
+func GetCommandToRun(commandInfo entities.CommandInfo) string {
+	return fmt.Sprintf("%s %s", commandInfo.Cmd, strings.Join(commandInfo.Args, " "))
+}
+
+func Exec(commandInfo entities.CommandInfo) entities.Response[string] {
+	var output []byte
+	var err error
+	cmd := buildCmd(commandInfo)
 	output, err = cmd.CombinedOutput()
 	outputStr := string(output[:])
 	if commandInfo.IsThrow && err != nil {
@@ -57,29 +65,63 @@ func Exec(commandInfo entities.CommandInfo) entities.Response[string] {
 	return entities.Response[string]{Data: outputStr, Error: err}
 }
 
-func ExecRealTime(commandInfo entities.CommandInfo) {
-	var cmd *exec.Cmd
-	command := addShellCommand(commandInfo)
-	if len(command.Args) > 0 {
-		cmd = exec.Command(command.Cmd, command.Args...)
-	} else {
-		cmd = exec.Command(command.Cmd)
+func ExecAsync(commandInfo entities.CommandInfo, callback func(res entities.Response[string])) {
+	cmd := buildCmd(commandInfo)
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		if callback != nil {
+			callback(entities.Response[string]{Data: "", Error: err})
+		}
+		return
 	}
-	cmd.Dir = command.Cwd
-	cmd.Env = commandInfo.EnvVars
-	var commandStr string = fmt.Sprintf("%s %s", command.Cmd, strings.Join(command.Args, " "))
-	if commandInfo.Verbose {
-		PromptLog(commandStr)
+	// Start the command.
+	if err := cmd.Start(); err != nil {
+		if callback != nil {
+			callback(entities.Response[string]{Data: "", Error: err})
+		}
+		return
 	}
+	// Copy all output from the running command to stdout.
+	go func() {
+		io.Copy(os.Stdout, stdoutPipe)
+		if err := cmd.Wait(); err != nil {
+			if callback != nil {
+				callback(entities.Response[string]{Data: "", Error: err})
+			}
+			return
+		}
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(stdoutPipe)
+		if callback != nil {
+			callback(entities.Response[string]{Data: buf.String(), Error: nil})
+		}
+	}()
+}
 
+func ExecRealTime(commandInfo entities.CommandInfo) {
+	cmd := buildCmd(commandInfo)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-
 	// Start the command
 	err := cmd.Run()
 	if err != nil {
 		fmt.Println("Error starting command:", err)
+		return
+	}
+}
+
+func ExecRealTimeAsync(commandInfo entities.CommandInfo) {
+	cmd := buildCmd(commandInfo)
+	_, err := cmd.StdoutPipe()
+	if err != nil {
+		ErrorLog(err.Error(), false)
+		return
+	}
+
+	// Start the command.
+	if err := cmd.Start(); err != nil {
+		ErrorLog(err.Error(), false)
 		return
 	}
 }

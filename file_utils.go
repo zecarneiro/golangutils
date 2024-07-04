@@ -311,3 +311,15 @@ func CreateDirectory(dir string, recursive bool) {
 		}
 	}
 }
+
+func GetDrives() (r []string) {
+    for _, drive := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ"{
+		driveDir := string(drive)+":\\"
+		f, err := os.Open(driveDir)
+        if err == nil {
+			r = append(r, driveDir)
+            f.Close()
+        }
+    }
+    return
+}
