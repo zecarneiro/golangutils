@@ -1,18 +1,31 @@
-package jnoronhautils
+package golangutils
 
 import (
 	"bufio"
 	"bytes"
 	"fmt"
 	"io"
-	"jnoronhautils/entities"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
 )
 
-func buildCmd(commandInfo entities.CommandInfo) *exec.Cmd {
+/* -------------------------------------------------------------------------- */
+/*                                 MODEL AREA                                 */
+/* -------------------------------------------------------------------------- */
+type CommandInfo struct {
+	Cmd              string
+	Args             []string
+	Cwd              string
+	Verbose, IsThrow bool
+	UsePowerShell    bool
+	UseBash          bool
+	EnvVars          []string
+}
+/* ----------------------------- END MODEL AREA ----------------------------- */
+
+func buildCmd(commandInfo CommandInfo) *exec.Cmd {
 	var cmd *exec.Cmd
 	command := AddShellCommand(commandInfo)
 	if len(command.Args) > 0 {
@@ -28,7 +41,7 @@ func buildCmd(commandInfo entities.CommandInfo) *exec.Cmd {
 	return cmd
 }
 
-func AddShellCommand(commandInfo entities.CommandInfo) entities.CommandInfo {
+func AddShellCommand(commandInfo CommandInfo) CommandInfo {
 	ValidateSystem()
 	cmdStr := fmt.Sprintf("%s %s", commandInfo.Cmd, strings.Join(commandInfo.Args, " "))
 	if IsWindows() {
@@ -46,11 +59,11 @@ func AddShellCommand(commandInfo entities.CommandInfo) entities.CommandInfo {
 	return commandInfo
 }
 
-func GetCommandToRun(commandInfo entities.CommandInfo) string {
+func GetCommandToRun(commandInfo CommandInfo) string {
 	return fmt.Sprintf("%s %s", commandInfo.Cmd, strings.Join(commandInfo.Args, " "))
 }
 
-func Exec(commandInfo entities.CommandInfo) entities.Response[string] {
+func Exec(commandInfo CommandInfo) Response[string] {
 	var output []byte
 	var err error
 	cmd := buildCmd(commandInfo)
@@ -62,22 +75,22 @@ func Exec(commandInfo entities.CommandInfo) entities.Response[string] {
 	if commandInfo.Verbose {
 		fmt.Println(outputStr)
 	}
-	return entities.Response[string]{Data: outputStr, Error: err}
+	return Response[string]{Data: outputStr, Error: err}
 }
 
-func ExecAsync(commandInfo entities.CommandInfo, callback func(res entities.Response[string])) {
+func ExecAsync(commandInfo CommandInfo, callback func(res Response[string])) {
 	cmd := buildCmd(commandInfo)
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		if callback != nil {
-			callback(entities.Response[string]{Data: "", Error: err})
+			callback(Response[string]{Data: "", Error: err})
 		}
 		return
 	}
 	// Start the command.
 	if err := cmd.Start(); err != nil {
 		if callback != nil {
-			callback(entities.Response[string]{Data: "", Error: err})
+			callback(Response[string]{Data: "", Error: err})
 		}
 		return
 	}
@@ -86,19 +99,19 @@ func ExecAsync(commandInfo entities.CommandInfo, callback func(res entities.Resp
 		io.Copy(os.Stdout, stdoutPipe)
 		if err := cmd.Wait(); err != nil {
 			if callback != nil {
-				callback(entities.Response[string]{Data: "", Error: err})
+				callback(Response[string]{Data: "", Error: err})
 			}
 			return
 		}
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(stdoutPipe)
 		if callback != nil {
-			callback(entities.Response[string]{Data: buf.String(), Error: nil})
+			callback(Response[string]{Data: buf.String(), Error: nil})
 		}
 	}()
 }
 
-func ExecRealTime(commandInfo entities.CommandInfo) {
+func ExecRealTime(commandInfo CommandInfo) {
 	cmd := buildCmd(commandInfo)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -111,7 +124,7 @@ func ExecRealTime(commandInfo entities.CommandInfo) {
 	}
 }
 
-func ExecRealTimeAsync(commandInfo entities.CommandInfo) {
+func ExecRealTimeAsync(commandInfo CommandInfo) {
 	cmd := buildCmd(commandInfo)
 	_, err := cmd.StdoutPipe()
 	if err != nil {
@@ -127,7 +140,7 @@ func ExecRealTimeAsync(commandInfo entities.CommandInfo) {
 }
 
 func Which(cmd string) []string {
-	commandInfo := entities.CommandInfo{Verbose: false, IsThrow: false}
+	commandInfo := CommandInfo{Verbose: false, IsThrow: false}
 	if IsWindows() {
 		commandInfo.Cmd = "Get-Command " + cmd + " | Select-Object -ExpandProperty Definition"
 		commandInfo.UsePowerShell = true
@@ -135,7 +148,7 @@ func Which(cmd string) []string {
 		commandInfo.Cmd = "which " + cmd
 	}
 	response := Exec(commandInfo)
-	return strings.Split(response.Data, SystemInfo().Eol)
+	return strings.Split(response.Data, SysInfo().Eol)
 }
 
 func Confirm(message string, isNoDefault bool) bool {

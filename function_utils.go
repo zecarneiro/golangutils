@@ -1,10 +1,9 @@
-package jnoronhautils
+package golangutils
 
 import (
 	"encoding/json"
 	"errors"
 	"io"
-	"jnoronhautils/entities"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +11,12 @@ import (
 	"strings"
 	"time"
 )
+
+/* -------------------------------------------------------------------------- */
+/*                                 MODEL AREA                                 */
+/* -------------------------------------------------------------------------- */
+type TaskFunc func()
+/* ----------------------------- END MODEL AREA ----------------------------- */
 
 func InArray[T any](arr []T, element T) bool {
 	if len(arr) > 0 {
@@ -63,27 +68,27 @@ func ProcessError(err error) {
 	}
 }
 
-func Download(url string, destFile string) entities.Response[bool] {
+func Download(url string, destFile string) Response[bool] {
 	// Create a GET request to fetch the file
 	response, err := http.Get(url)
 	if err != nil {
-		return entities.Response[bool]{Data: false, Error: err}
+		return Response[bool]{Data: false, Error: err}
 	}
 	defer response.Body.Close()
 
 	// Create the file to which the downloaded content will be written
 	file, err := os.Create(destFile)
 	if err != nil {
-		return entities.Response[bool]{Data: false, Error: err}
+		return Response[bool]{Data: false, Error: err}
 	}
 	defer file.Close()
 
 	// Copy the response body (file content) to the file
 	_, err = io.Copy(file, response.Body)
 	if err != nil {
-		return entities.Response[bool]{Data: false, Error: err}
+		return Response[bool]{Data: false, Error: err}
 	}
-	return entities.Response[bool]{Data: true}
+	return Response[bool]{Data: true}
 }
 
 func StringReplaceAll(data string, replacer map[string]string) string {

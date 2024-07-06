@@ -1,4 +1,4 @@
-package entities
+package golangutils
 
 type Response[T any] struct {
 	Data  T

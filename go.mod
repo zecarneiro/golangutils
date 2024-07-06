@@ -1,3 +1,3 @@
-module jnoronhautils
+module github.com/zecarneiro/golangutils
 
-go 1.18
+go 1.22.4

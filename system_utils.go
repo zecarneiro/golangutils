@@ -1,20 +1,43 @@
-package jnoronhautils
+package golangutils
 
 import (
 	"errors"
-	"jnoronhautils/entities"
-	"jnoronhautils/enums"
 	"os"
 	"os/user"
 	"runtime"
 )
 
-func SystemInfo() entities.SystemInfo {
-	info := entities.SystemInfo{
+/* -------------------------------------------------------------------------- */
+/*                                 MODEL AREA                                 */
+/* -------------------------------------------------------------------------- */
+type CpuInfo struct {
+	Cpu  int
+	Arch string
+}
+
+type SystemInfo struct {
+	TempDir, HomeDir, Hostname, Eol string
+	Platform                        int
+	Uptime                          float64
+	UserInfo                        user.User
+	Cpu                             CpuInfo
+}
+/* ----------------------------- END MODEL AREA ----------------------------- */
+
+const (
+	NONE    = 0
+	UNIX    = 1
+	DARWIN  = 2
+	LINUX   = 3
+	WINDOWS = 4
+)
+
+func SysInfo() SystemInfo {
+	info := SystemInfo{
 		TempDir:  os.TempDir(),
 		Eol:      "\n",
 		Platform: platform(),
-		Cpu:      entities.CpuInfo{Cpu: runtime.NumCPU(), Arch: runtime.GOARCH},
+		Cpu:      CpuInfo{Cpu: runtime.NumCPU(), Arch: runtime.GOARCH},
 	}
 	currentUser, err := user.Current()
 	if err == nil {
@@ -34,51 +57,51 @@ func SystemInfo() entities.SystemInfo {
 
 func platform() int {
 	if runtime.GOOS == "windows" {
-		return entities.WINDOWS
+		return WINDOWS
 	} else if runtime.GOOS == "darwin" {
-		return entities.DARWIN
+		return DARWIN
 	} else if runtime.GOOS == "linux" {
-		return entities.LINUX
+		return LINUX
 	} else {
-		return entities.NONE
+		return NONE
 	}
 }
 
 func IsWindows() bool {
-	return platform() == entities.WINDOWS
+	return platform() == WINDOWS
 }
 
 func IsDarwin() bool {
-	return platform() == entities.DARWIN
+	return platform() == DARWIN
 }
 
 func IsLinux() bool {
-	return platform() == entities.LINUX
+	return platform() == LINUX
 }
 
 func ValidateSystem() {
-	if platform() == entities.NONE {
-		ErrorLog(enums.UNKNOW_OS_MSG, false)
+	if platform() == NONE {
+		ErrorLog(UNKNOW_OS_MSG, false)
 		os.Exit(1)
 	}
 }
 
 func Reboot() error {
-	var cmdInfo entities.CommandInfo
+	var cmdInfo CommandInfo
 	if IsWindows() {
-		cmdInfo = entities.CommandInfo{
+		cmdInfo = CommandInfo{
 			Cmd:     "shutdown",
 			Args:    []string{"/r", "/t", "0"},
 			EnvVars: os.Environ(),
 		}
 	} else if IsLinux() {
-		cmdInfo = entities.CommandInfo{
+		cmdInfo = CommandInfo{
 			Cmd:     "sudo",
 			Args:    []string{"shutdown", "-r", "now"},
 			EnvVars: os.Environ(),
 		}
 	} else if IsDarwin() {
-		return errors.New(enums.NOT_IMPLEMENTED_YET_MSG)
+		return errors.New(NOT_IMPLEMENTED_YET_MSG)
 	}
 	if Confirm("Will be restart PC. Continue", true) {
 		ExecRealTime(cmdInfo)
