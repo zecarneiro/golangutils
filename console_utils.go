@@ -50,7 +50,7 @@ func AddShellCommand(commandInfo CommandInfo) CommandInfo {
 			commandInfo.Args = []string{"/c", cmdStr}
 		} else {
 			commandInfo.Cmd = "powershell.exe"
-			commandInfo.Args = []string{cmdStr}
+			commandInfo.Args = []string{"-WindowStyle hidden", cmdStr}
 		}
 	} else if commandInfo.UseBash {
 		commandInfo.Cmd = "/bin/bash"
