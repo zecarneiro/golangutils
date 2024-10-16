@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 )
 
 /* -------------------------------------------------------------------------- */
@@ -33,6 +34,7 @@ func buildCmd(commandInfo CommandInfo) *exec.Cmd {
 	} else {
 		cmd = exec.Command(command.Cmd)
 	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	cmd.Dir = commandInfo.Cwd
 	cmd.Env = commandInfo.EnvVars
 	if commandInfo.Verbose {
