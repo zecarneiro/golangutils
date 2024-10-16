@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 )
 
 /* -------------------------------------------------------------------------- */
@@ -24,6 +23,7 @@ type CommandInfo struct {
 	UseBash          bool
 	EnvVars          []string
 }
+
 /* ----------------------------- END MODEL AREA ----------------------------- */
 
 func buildCmd(commandInfo CommandInfo) *exec.Cmd {
@@ -34,7 +34,7 @@ func buildCmd(commandInfo CommandInfo) *exec.Cmd {
 	} else {
 		cmd = exec.Command(command.Cmd)
 	}
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
+	setSysProAttr(cmd)
 	cmd.Dir = commandInfo.Cwd
 	cmd.Env = commandInfo.EnvVars
 	if commandInfo.Verbose {
