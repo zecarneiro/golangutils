@@ -3,6 +3,7 @@ package golangutils
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -187,4 +188,52 @@ func ConfirmOrExit(message string, isNoDefault bool) bool {
 func WaitForAnyKeyPressed(message string) {
 	LogLog(message, true)
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
+}
+
+func ExecCommandAsync(info CommandInfo) error {
+	var shell, shellArg string
+	if info.UseBash {
+		shell = "/bin/bash"
+		shellArg = "-c"
+	} else {
+		return errors.New("Must provide one of shell type")
+	}
+	cmd := GetCommandToRun(info)
+	if info.Verbose {
+		PromptLog(cmd)
+	}
+	var attr = os.ProcAttr{
+		Dir:   info.Cwd,
+		Env:   info.EnvVars,
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+	}
+	process, err := os.StartProcess(shell, []string{shell, shellArg, cmd}, &attr)
+	if err == nil {
+		return process.Release()
+	}
+	return err
+}
+
+func ExecCommand(info CommandInfo) (*os.ProcessState, error) {
+	var shell, shellArg string
+	if info.UseBash {
+		shell = "/bin/bash"
+		shellArg = "-c"
+	} else {
+		return nil, errors.New("Must provide one of shell type")
+	}
+	cmd := GetCommandToRun(info)
+	if info.Verbose {
+		PromptLog(cmd)
+	}
+	var attr = os.ProcAttr{
+		Dir:   info.Cwd,
+		Env:   info.EnvVars,
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+	}
+	process, err := os.StartProcess(shell, []string{shell, shellArg, cmd}, &attr)
+	if err == nil {
+		return process.Wait()
+	}
+	return nil, err
 }

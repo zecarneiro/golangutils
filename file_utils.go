@@ -16,9 +16,10 @@ import (
 /*                                 MODEL AREA                                 */
 /* -------------------------------------------------------------------------- */
 type FileInfo struct {
-	Files      []string
+	Files       []string
 	Directories []string
 }
+
 /* ----------------------------- END MODEL AREA ----------------------------- */
 
 const (
@@ -183,7 +184,8 @@ func GetCurrentDir() string {
 func ReadJsonFile[T any](jsonFile string) (T, error) {
 	data, err := ReadFile(jsonFile)
 	if err != nil {
-		ErrorLog(err.Error(), false)
+		var dataGeneric T
+		return dataGeneric, err
 	}
 	return StringToObject[T](data)
 }
@@ -209,10 +211,12 @@ func DeleteDirectory(directory string) bool {
 
 func DeleteFile(file string) bool {
 	file = ResolvePath(file)
-	err := os.Remove(file)
-	if err != nil {
-		ErrorLog(err.Error(), false)
-		return false
+	if FileExist(file) {
+		err := os.Remove(file)
+		if err != nil {
+			ErrorLog(err.Error(), false)
+			return false
+		}
 	}
 	return true
 }
@@ -328,13 +332,13 @@ func CreateDirectory(dir string, recursive bool) {
 }
 
 func GetDrives() (r []string) {
-    for _, drive := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ"{
-		driveDir := string(drive)+":\\"
+	for _, drive := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
+		driveDir := string(drive) + ":\\"
 		f, err := os.Open(driveDir)
-        if err == nil {
+		if err == nil {
 			r = append(r, driveDir)
-            f.Close()
-        }
-    }
-    return
+			f.Close()
+		}
+	}
+	return
 }
