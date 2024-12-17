@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"golangutils/entity"
 	"io"
 	"log"
-	"golangutils/entity"
 	"os"
 	"os/exec"
 	"strings"
@@ -25,7 +25,7 @@ func NewConsole(logger Logger) Console {
 	return Console{logger: logger, systemInfo: NewSystemInfo()}
 }
 
-func (c *Console) buildCmd(command Command, useSysProAttr bool) *exec.Cmd {
+func (c *Console) buildCmd(command entity.Command, useSysProAttr bool) *exec.Cmd {
 	var cmd *exec.Cmd
 	cmdWithShell := command.GetCmdWithShell()
 	if len(cmdWithShell.Args) > 0 {
@@ -44,7 +44,7 @@ func (c *Console) buildCmd(command Command, useSysProAttr bool) *exec.Cmd {
 	return cmd
 }
 
-func (c *Console) Exec(command Command) Response[string] {
+func (c *Console) Exec(command entity.Command) Response[string] {
 	var output []byte
 	var err error
 	cmd := c.buildCmd(command, true)
