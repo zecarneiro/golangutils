@@ -5,4 +5,4 @@ package golangutils
 
 import "os/exec"
 
-func setSysProAttr(cmd *exec.Cmd) {}
+func (c *ConsoleUtils) setSysProAttr(cmd *exec.Cmd) {}

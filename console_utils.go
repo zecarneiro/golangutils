@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"golangutils/entity"
 	"io"
 	"log"
 	"os"
@@ -12,88 +13,65 @@ import (
 	"strings"
 )
 
-/* -------------------------------------------------------------------------- */
-/*                                 MODEL AREA                                 */
-/* -------------------------------------------------------------------------- */
-type CommandInfo struct {
-	Cmd              string
-	Args             []string
-	Cwd              string
-	Verbose, IsThrow bool
-	UsePowerShell    bool
-	UseBash          bool
-	EnvVars          []string
+type ConsoleUtils struct {
+	loggerUtils *LoggerUtils
+	systemUtils SystemUtils
 }
 
-/* ----------------------------- END MODEL AREA ----------------------------- */
-
-func buildCmd(commandInfo CommandInfo) *exec.Cmd {
-	var cmd *exec.Cmd
-	command := AddShellCommand(commandInfo)
-	if len(command.Args) > 0 {
-		cmd = exec.Command(command.Cmd, command.Args...)
-	} else {
-		cmd = exec.Command(command.Cmd)
+func NewConsoleUtils(loggerUtils *LoggerUtils) ConsoleUtils {
+	if *loggerUtils == (LoggerUtils{}) {
+		*loggerUtils = NewLoggerUtils()
 	}
-	setSysProAttr(cmd)
-	cmd.Dir = commandInfo.Cwd
-	cmd.Env = commandInfo.EnvVars
-	if commandInfo.Verbose {
-		PromptLog(GetCommandToRun(command))
+	return ConsoleUtils{loggerUtils: loggerUtils, systemUtils: NewSystemUtils(loggerUtils)}
+}
+
+func (c *ConsoleUtils) buildCmd(command entity.Command, useSysProAttr bool) *exec.Cmd {
+	var cmd *exec.Cmd
+	cmdWithShell := command.GetCmdWithShell(c.GetShellPath(), c.systemUtils.info.Platform)
+	if len(cmdWithShell.Args) > 0 {
+		cmd = exec.Command(cmdWithShell.Cmd, cmdWithShell.Args...)
+	} else {
+		cmd = exec.Command(cmdWithShell.Cmd)
+	}
+	if useSysProAttr {
+		c.setSysProAttr(cmd)
+	}
+	cmd.Dir = command.Cwd
+	cmd.Env = command.EnvVars
+	if command.Verbose {
+		c.loggerUtils.Prompt(cmdWithShell.GetCommandFormated())
 	}
 	return cmd
 }
 
-func AddShellCommand(commandInfo CommandInfo) CommandInfo {
-	ValidateSystem()
-	cmdStr := fmt.Sprintf("%s %s", commandInfo.Cmd, strings.Join(commandInfo.Args, " "))
-	if IsWindows() {
-		if !commandInfo.UsePowerShell {
-			commandInfo.Cmd = "cmd.exe"
-			commandInfo.Args = []string{"/c", cmdStr}
-		} else {
-			commandInfo.Cmd = "powershell.exe"
-			commandInfo.Args = []string{cmdStr}
-		}
-	} else if commandInfo.UseBash {
-		commandInfo.Cmd = "/bin/bash"
-		commandInfo.Args = []string{"-c", cmdStr}
-	}
-	return commandInfo
-}
-
-func GetCommandToRun(commandInfo CommandInfo) string {
-	return fmt.Sprintf("%s %s", commandInfo.Cmd, strings.Join(commandInfo.Args, " "))
-}
-
-func Exec(commandInfo CommandInfo) Response[string] {
+func (c *ConsoleUtils) Exec(command entity.Command) entity.Response[string] {
 	var output []byte
 	var err error
-	cmd := buildCmd(commandInfo)
+	cmd := c.buildCmd(command, true)
 	output, err = cmd.CombinedOutput()
 	outputStr := string(output[:])
-	if commandInfo.IsThrow && err != nil {
+	if command.IsThrow && err != nil {
 		log.Fatal(err)
 	}
-	if commandInfo.Verbose {
+	if command.Verbose {
 		fmt.Println(outputStr)
 	}
-	return Response[string]{Data: outputStr, Error: err}
+	return entity.Response[string]{Data: outputStr, Error: err}
 }
 
-func ExecAsync(commandInfo CommandInfo, callback func(res Response[string])) {
-	cmd := buildCmd(commandInfo)
+func (c *ConsoleUtils) ExecAsync(command entity.Command, callback func(res entity.Response[string])) {
+	cmd := c.buildCmd(command, true)
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		if callback != nil {
-			callback(Response[string]{Data: "", Error: err})
+			callback(entity.Response[string]{Data: "", Error: err})
 		}
 		return
 	}
 	// Start the command.
 	if err := cmd.Start(); err != nil {
 		if callback != nil {
-			callback(Response[string]{Data: "", Error: err})
+			callback(entity.Response[string]{Data: "", Error: err})
 		}
 		return
 	}
@@ -102,20 +80,20 @@ func ExecAsync(commandInfo CommandInfo, callback func(res Response[string])) {
 		io.Copy(os.Stdout, stdoutPipe)
 		if err := cmd.Wait(); err != nil {
 			if callback != nil {
-				callback(Response[string]{Data: "", Error: err})
+				callback(entity.Response[string]{Data: "", Error: err})
 			}
 			return
 		}
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(stdoutPipe)
 		if callback != nil {
-			callback(Response[string]{Data: buf.String(), Error: nil})
+			callback(entity.Response[string]{Data: buf.String(), Error: nil})
 		}
 	}()
 }
 
-func ExecRealTime(commandInfo CommandInfo) {
-	cmd := buildCmd(commandInfo)
+func (c *ConsoleUtils) ExecRealTime(command entity.Command) {
+	cmd := c.buildCmd(command, false)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -127,34 +105,76 @@ func ExecRealTime(commandInfo CommandInfo) {
 	}
 }
 
-func ExecRealTimeAsync(commandInfo CommandInfo) {
-	cmd := buildCmd(commandInfo)
+func (c *ConsoleUtils) ExecRealTimeAsync(command entity.Command) {
+	cmd := c.buildCmd(command, false)
 	_, err := cmd.StdoutPipe()
 	if err != nil {
-		ErrorLog(err.Error(), false)
+		c.loggerUtils.Error(err.Error())
 		return
 	}
 
 	// Start the command.
 	if err := cmd.Start(); err != nil {
-		ErrorLog(err.Error(), false)
+		c.loggerUtils.Error(err.Error())
 		return
 	}
 }
 
-func Which(cmd string) []string {
-	commandInfo := CommandInfo{Verbose: false, IsThrow: false}
-	if IsWindows() {
-		commandInfo.Cmd = "Get-Command " + cmd + " | Select-Object -ExpandProperty Definition"
-		commandInfo.UsePowerShell = true
-	} else {
-		commandInfo.Cmd = "which " + cmd
+func (c *ConsoleUtils) ExecCommand(command entity.Command) (*os.ProcessState, error) {
+	shell := c.GetShellPath()
+	if len(shell.Path) == 0 {
+		return nil, errors.New("Must provide one of shell type")
 	}
-	response := Exec(commandInfo)
-	return strings.Split(response.Data, SysInfo().Eol)
+	cmd := command.GetCommandFormated()
+	if command.Verbose {
+		c.loggerUtils.Prompt(cmd)
+	}
+	var attr = os.ProcAttr{
+		Dir:   command.Cwd,
+		Env:   command.EnvVars,
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+	}
+	process, err := os.StartProcess(shell.Path, []string{shell.Path, shell.Arg, cmd}, &attr)
+	if err == nil {
+		return process.Wait()
+	}
+	return nil, err
 }
 
-func Confirm(message string, isNoDefault bool) bool {
+func (c *ConsoleUtils) ExecCommandAsync(command entity.Command) error {
+	shell := c.GetShellPath()
+	if len(shell.Path) == 0 {
+		return errors.New("Must provide one of shell type")
+	}
+	cmd := command.GetCommandFormated()
+	if command.Verbose {
+		c.loggerUtils.Prompt(cmd)
+	}
+	var attr = os.ProcAttr{
+		Dir:   command.Cwd,
+		Env:   command.EnvVars,
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+	}
+	process, err := os.StartProcess(shell.Path, []string{shell.Path, shell.Arg, cmd}, &attr)
+	if err == nil {
+		return process.Release()
+	}
+	return err
+}
+
+func (c *ConsoleUtils) Which(cmd string) []string {
+	command := entity.Command{Verbose: false, IsThrow: false}
+	if c.systemUtils.IsWindows() {
+		command.Cmd = "Get-Command " + cmd + " | Select-Object -ExpandProperty Definition"
+		command.UsePowerShell = true
+	} else {
+		command.Cmd = "which " + cmd
+	}
+	response := c.Exec(command)
+	return strings.Split(response.Data, c.systemUtils.Info().Eol)
+}
+
+func (c *ConsoleUtils) Confirm(message string, isNoDefault bool) bool {
 	yesNoMsg := "[y/N]"
 	if !isNoDefault {
 		yesNoMsg = "[Y/n]"
@@ -168,7 +188,7 @@ func Confirm(message string, isNoDefault bool) bool {
 	return false
 }
 
-func ConfirmOrExit(message string, isNoDefault bool) bool {
+func (c *ConsoleUtils) ConfirmOrExit(message string, isNoDefault bool) bool {
 	yesNoMsg := "[y/N/0(Exit)]"
 	if !isNoDefault {
 		yesNoMsg = "[Y/n/0(Exit)]"
@@ -185,55 +205,39 @@ func ConfirmOrExit(message string, isNoDefault bool) bool {
 	return false
 }
 
-func WaitForAnyKeyPressed(message string) {
-	LogLog(message, true)
+func (c *ConsoleUtils) WaitForAnyKeyPressed(message string) {
+	c.loggerUtils.EnableKeepLine()
+	c.loggerUtils.Log(message)
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
-func ExecCommandAsync(info CommandInfo) error {
-	var shell, shellArg string
-	if info.UseBash {
-		shell = "/bin/bash"
-		shellArg = "-c"
-	} else {
-		return errors.New("Must provide one of shell type")
+func (c *ConsoleUtils) Clear() {
+	command := entity.Command{}
+	if c.systemUtils.IsWindows() {
+		command.Cmd = "cmd"
+		command.Args = []string{"/c", "cls"}
+	} else if c.systemUtils.IsLinux() {
+		command.Cmd = "clear"
 	}
-	cmd := GetCommandToRun(info)
-	if info.Verbose {
-		PromptLog(cmd)
-	}
-	var attr = os.ProcAttr{
-		Dir:   info.Cwd,
-		Env:   info.EnvVars,
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-	}
-	process, err := os.StartProcess(shell, []string{shell, shellArg, cmd}, &attr)
-	if err == nil {
-		return process.Release()
-	}
-	return err
+	cmd := exec.Command(command.Cmd, command.Args...)
+	cmd.Stdout = os.Stdout
+	cmd.Run()
 }
 
-func ExecCommand(info CommandInfo) (*os.ProcessState, error) {
-	var shell, shellArg string
-	if info.UseBash {
-		shell = "/bin/bash"
-		shellArg = "-c"
-	} else {
-		return nil, errors.New("Must provide one of shell type")
+func (c *ConsoleUtils) GetShellPath() entity.Shell {
+	if c.systemUtils.IsWindows() {
+		ps, _ := exec.LookPath("powershell.exe")
+		return entity.Shell{Path: ps, Arg: ""}
+	} else if c.systemUtils.IsLinux() {
+		return entity.Shell{Path: "/bin/bash", Arg: "-c"}
 	}
-	cmd := GetCommandToRun(info)
-	if info.Verbose {
-		PromptLog(cmd)
-	}
-	var attr = os.ProcAttr{
-		Dir:   info.Cwd,
-		Env:   info.EnvVars,
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-	}
-	process, err := os.StartProcess(shell, []string{shell, shellArg, cmd}, &attr)
-	if err == nil {
-		return process.Wait()
-	}
-	return nil, err
+	return entity.Shell{}
+}
+
+func SetEnv(key string, value string) {
+	os.Setenv(key, value)
+}
+
+func UnsetEnv(key string) {
+	os.Unsetenv(key)
 }

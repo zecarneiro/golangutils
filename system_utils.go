@@ -2,109 +2,131 @@ package golangutils
 
 import (
 	"errors"
+	"golangutils/entity"
+	"golangutils/enum"
 	"os"
 	"os/user"
+	"regexp"
 	"runtime"
+	"strings"
 )
 
-/* -------------------------------------------------------------------------- */
-/*                                 MODEL AREA                                 */
-/* -------------------------------------------------------------------------- */
-type CpuInfo struct {
-	Cpu  int
-	Arch string
+type SystemUtils struct {
+	info        entity.SystemInfo
+	loggerUtils *LoggerUtils
 }
 
-type SystemInfo struct {
-	TempDir, HomeDir, Hostname, Eol string
-	Platform                        int
-	Uptime                          float64
-	UserInfo                        user.User
-	Cpu                             CpuInfo
-}
-/* ----------------------------- END MODEL AREA ----------------------------- */
-
-const (
-	NONE    = 0
-	UNIX    = 1
-	DARWIN  = 2
-	LINUX   = 3
-	WINDOWS = 4
-)
-
-func SysInfo() SystemInfo {
-	info := SystemInfo{
-		TempDir:  os.TempDir(),
-		Eol:      "\n",
-		Platform: platform(),
-		Cpu:      CpuInfo{Cpu: runtime.NumCPU(), Arch: runtime.GOARCH},
-	}
-	currentUser, err := user.Current()
-	if err == nil {
-		info.UserInfo = *currentUser
-		info.HomeDir = currentUser.HomeDir
-	}
-	hostname, err := os.Hostname()
-	if err == nil {
-		info.Hostname = hostname
-	}
-	if IsWindows() {
-		info.Eol = "\r\n"
-	}
-
-	return info
+func NewSystemUtils(loggerUtils *LoggerUtils) SystemUtils {
+	return SystemUtils{loggerUtils: loggerUtils}
 }
 
-func platform() int {
-	if runtime.GOOS == "windows" {
-		return WINDOWS
-	} else if runtime.GOOS == "darwin" {
-		return DARWIN
-	} else if runtime.GOOS == "linux" {
-		return LINUX
+func (s *SystemUtils) setDistroLinuxName() {
+	osReleaseFile := "/etc/os-release"
+	callback := func(line string, err error) {
+		match, err := regexp.MatchString("^NAME=", line)
+		if err == nil && match {
+			lineArr := strings.Split(line, "=")
+			s.info.PlatformName = lineArr[1]
+			s.info.PlatformName = strings.Trim(s.info.PlatformName, "\"")
+			s.info.PlatformName = strings.TrimSpace(s.info.PlatformName)
+			s.info.PlatformName = strings.ToLower(s.info.PlatformName)
+		}
+	}
+	ReadFileLineByLine(osReleaseFile, callback)
+}
+
+func (s *SystemUtils) setPlatform() {
+	if s.info.PlatformName == "windows" {
+		s.info.Platform = enum.WINDOWS
+	} else if s.info.PlatformName == "darwin" {
+		s.info.Platform = enum.DARWIN
+	} else if s.info.PlatformName == "linux" {
+		s.info.Platform = enum.LINUX
+		s.setDistroLinuxName()
 	} else {
-		return NONE
+		s.info.Platform = enum.NONE
 	}
 }
 
-func IsWindows() bool {
-	return platform() == WINDOWS
-}
-
-func IsDarwin() bool {
-	return platform() == DARWIN
-}
-
-func IsLinux() bool {
-	return platform() == LINUX
-}
-
-func ValidateSystem() {
-	if platform() == NONE {
-		ErrorLog(UNKNOW_OS_MSG, false)
-		os.Exit(1)
+func (s *SystemUtils) getEol() string {
+	if s.IsWindows() {
+		return "\r\n"
 	}
+	return "\n"
 }
 
-func Reboot() error {
-	var cmdInfo CommandInfo
-	if IsWindows() {
-		cmdInfo = CommandInfo{
+func (s *SystemUtils) Info() entity.SystemInfo {
+	if s.info == (entity.SystemInfo{}) {
+		s.info = entity.SystemInfo{
+			TempDir:      os.TempDir(),
+			PlatformName: runtime.GOOS,
+			Cpu:          entity.CpuInfo{Cpu: runtime.NumCPU(), Arch: runtime.GOARCH},
+		}
+
+		// Platform
+		s.setPlatform()
+
+		// EOL
+		s.info.Eol = s.getEol()
+
+		// User Info and Home dir
+		currentUser, err := user.Current()
+		if err == nil {
+			s.info.UserInfo = *currentUser
+			s.info.HomeDir = s.info.UserInfo.HomeDir
+		}
+
+		// Hostname
+		hostname, err := os.Hostname()
+		if err == nil {
+			s.info.Hostname = hostname
+		}
+	}
+	return s.info
+}
+
+func (s *SystemUtils) IsWindows() bool {
+	return s.Info().Platform == enum.WINDOWS
+}
+
+func (s *SystemUtils) IsDarwin() bool {
+	return s.Info().Platform == enum.DARWIN
+}
+
+func (s *SystemUtils) IsLinux() bool {
+	return s.Info().Platform == enum.LINUX
+}
+
+func (s *SystemUtils) ValidatePlatform(canExit bool, logger LoggerUtils) bool {
+	var isValid = s.Info().Platform != enum.NONE
+	if !isValid {
+		logger.Error(GetUnknowOSMsg())
+		if canExit {
+			os.Exit(1)
+		}
+	}
+	return isValid
+}
+
+func (s *SystemUtils) Reboot(console ConsoleUtils) error {
+	var cmd entity.Command
+	if s.IsWindows() {
+		cmd = entity.Command{
 			Cmd:     "shutdown",
 			Args:    []string{"/r", "/t", "0"},
 			EnvVars: os.Environ(),
 		}
-	} else if IsLinux() {
-		cmdInfo = CommandInfo{
+	} else if s.IsLinux() {
+		cmd = entity.Command{
 			Cmd:     "sudo",
 			Args:    []string{"shutdown", "-r", "now"},
 			EnvVars: os.Environ(),
 		}
-	} else if IsDarwin() {
-		return errors.New(NOT_IMPLEMENTED_YET_MSG)
+	} else if s.IsDarwin() {
+		return errors.New(GetNotImplementedYetMsg())
 	}
-	if Confirm("Will be restart PC. Continue", true) {
-		ExecRealTime(cmdInfo)
+	if console.Confirm("Will be restart PC. Continue", true) {
+		console.ExecRealTime(cmd)
 		os.Exit(0)
 	}
 	return nil

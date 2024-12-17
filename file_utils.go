@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"golangutils/entity"
+	"golangutils/enum"
 	"io"
 	"io/ioutil"
 	"log"
@@ -12,22 +14,9 @@ import (
 	"path/filepath"
 )
 
-/* -------------------------------------------------------------------------- */
-/*                                 MODEL AREA                                 */
-/* -------------------------------------------------------------------------- */
-type FileInfo struct {
-	Files       []string
-	Directories []string
+func GetCurrentDir() (string, error) {
+	return os.Getwd()
 }
-
-/* ----------------------------- END MODEL AREA ----------------------------- */
-
-const (
-	FileTypeNone         = 0
-	FileTypeDirectory    = 1
-	FileTypeFile         = 2
-	FileTypeSymbolicLink = 3
-)
 
 func ResolvePath(path string) string {
 	if len(path) > 0 {
@@ -59,58 +48,64 @@ func ReadFileLineByLine(filePath string, callback func(string, error)) {
 	}
 }
 
-func WriteFile(file string, data string, isAppend bool) bool {
-	var status = true
+func WriteFile(file string, data string, isAppend bool) error {
 	var fileStream *os.File
 	var err error
 	file = ResolvePath(file)
 	if isAppend && FileExist(file) {
-		fileStream, err = os.OpenFile("lines", os.O_APPEND|os.O_WRONLY, 0644)
+		fileStream, err = os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0644)
 	} else {
 		fileStream, err = os.Create(file)
 	}
 	if err != nil {
-		ErrorLog(err.Error(), false)
 		fileStream.Close()
-		return false
+		return err
 	}
-	if status {
-		_, err = fmt.Fprintln(fileStream, data)
-		if err != nil {
-			ErrorLog(err.Error(), false)
-			fileStream.Close()
-			return false
-		}
+	_, err = fmt.Fprintln(fileStream, data)
+	if err != nil {
+		fileStream.Close()
+		return err
 	}
 	fileStream.Close()
-	return true
+	return nil
+}
+
+func DeleteFile(file string) error {
+	file = ResolvePath(file)
+	if FileExist(file) {
+		err := os.Remove(file)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func FileType(fileName string) (int, error) {
 	var typeFile int
-	file, err := os.Open(fileName)
+	file, err := os.Open(ResolvePath(fileName))
 	if err != nil {
-		return FileTypeNone, err
+		return enum.FileTypeNone, err
 	}
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return FileTypeNone, err
+		return enum.FileTypeNone, err
 	}
 	if fileInfo.IsDir() {
-		typeFile = FileTypeDirectory
+		typeFile = enum.FileTypeDirectory
 	} else {
-		typeFile = FileTypeFile
+		typeFile = enum.FileTypeFile
 	}
 	defer file.Close()
 	return typeFile, nil
 }
 
-func ReadDir(dir string) (FileInfo, error) {
-	var filesData FileInfo
+func ReadDir(dir string) (entity.FileInfo, error) {
+	dir = ResolvePath(dir)
+	var filesData entity.FileInfo
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		ErrorLog(err.Error(), false)
-		return FileInfo{}, err
+		return entity.FileInfo{}, err
 	} else {
 		for _, file := range files {
 			if file.IsDir() {
@@ -123,8 +118,9 @@ func ReadDir(dir string) (FileInfo, error) {
 	return filesData, nil
 }
 
-func ReadDirRecursive(dir string) (FileInfo, error) {
-	files := FileInfo{Directories: []string{}, Files: []string{}}
+func ReadDirRecursive(dir string) (entity.FileInfo, error) {
+	dir = ResolvePath(dir)
+	files := entity.FileInfo{Directories: []string{}, Files: []string{}}
 	err := filepath.Walk(dir,
 		func(path string, _ os.FileInfo, err error) error {
 			if err != nil {
@@ -135,7 +131,7 @@ func ReadDirRecursive(dir string) (FileInfo, error) {
 				if err != nil {
 					return err
 				}
-				if info == FileTypeDirectory {
+				if info == enum.FileTypeDirectory {
 					files.Directories = append(files.Directories, path)
 				} else {
 					files.Files = append(files.Files, path)
@@ -145,13 +141,13 @@ func ReadDirRecursive(dir string) (FileInfo, error) {
 		},
 	)
 	if err != nil {
-		return FileInfo{}, err
+		return entity.FileInfo{}, err
 	}
 	return files, nil
 }
 
 func IsDirEmpty(name string) (bool, error) {
-	f, err := os.Open(name)
+	f, err := os.Open(ResolvePath(name))
 	if err != nil {
 		return false, err
 	}
@@ -172,17 +168,8 @@ func FileExist(file string) bool {
 	return err == nil
 }
 
-func GetCurrentDir() string {
-	path, err := os.Getwd()
-	if err != nil {
-		ErrorLog(err.Error(), false)
-		path = ""
-	}
-	return path
-}
-
 func ReadJsonFile[T any](jsonFile string) (T, error) {
-	data, err := ReadFile(jsonFile)
+	data, err := ReadFile(ResolvePath(jsonFile))
 	if err != nil {
 		var dataGeneric T
 		return dataGeneric, err
@@ -190,35 +177,12 @@ func ReadJsonFile[T any](jsonFile string) (T, error) {
 	return StringToObject[T](data)
 }
 
-func WriteJsonFile[T any](jsonFile string, data T) bool {
+func WriteJsonFile[T any](jsonFile string, data T) error {
 	dataStr, err := ObjectToString(data)
 	if err != nil {
-		ErrorLog(err.Error(), false)
-		return false
+		return err
 	}
-	return WriteFile(jsonFile, dataStr, false)
-}
-
-func DeleteDirectory(directory string) bool {
-	directory = ResolvePath(directory)
-	err := os.RemoveAll(directory)
-	if err != nil {
-		ErrorLog(err.Error(), false)
-		return false
-	}
-	return true
-}
-
-func DeleteFile(file string) bool {
-	file = ResolvePath(file)
-	if FileExist(file) {
-		err := os.Remove(file)
-		if err != nil {
-			ErrorLog(err.Error(), false)
-			return false
-		}
-	}
-	return true
+	return WriteFile(ResolvePath(jsonFile), dataStr, false)
 }
 
 func CopyFile(src string, dst string) error {
@@ -282,42 +246,36 @@ func CopyDir(src string, dst string) error {
 	return nil
 }
 
-func GetExecutableDir() string {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		ErrorLog(err.Error(), false)
-		dir = ""
-	}
-	return dir
+func GetExecutableDir() (string, error) {
+	return filepath.Abs(filepath.Dir(os.Args[0]))
 }
 
-func ReadFileInByte(filename string) []byte {
+func ReadFileInByte(filename string) ([]byte, error) {
 	file, err := os.Open(ResolvePath(filename))
+	byteArr := []byte{}
 	if err != nil {
 		file.Close()
-		ErrorLog(err.Error(), false)
-		return []byte{}
+		return byteArr, err
 	}
 	defer file.Close()
 
 	// Get the file size
 	stat, err := file.Stat()
 	if err != nil {
-		ErrorLog(err.Error(), false)
-		return []byte{}
+		return byteArr, err
 	}
 
 	// Read the file into a byte slice
-	byteArr := make([]byte, stat.Size())
+	byteArr = make([]byte, stat.Size())
 	_, err = bufio.NewReader(file).Read(byteArr)
 	if err != nil && err != io.EOF {
-		ErrorLog(err.Error(), false)
-		return []byte{}
+		return byteArr, err
 	}
-	return byteArr
+	return byteArr, nil
 }
 
 func CreateDirectory(dir string, recursive bool) {
+	dir = ResolvePath(dir)
 	if _, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
 		var err error
 		if recursive {
@@ -329,6 +287,15 @@ func CreateDirectory(dir string, recursive bool) {
 			log.Println(err)
 		}
 	}
+}
+
+func DeleteDirectory(directory string) error {
+	directory = ResolvePath(directory)
+	err := os.RemoveAll(directory)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetDrives() (r []string) {

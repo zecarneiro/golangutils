@@ -3,20 +3,23 @@ package golangutils
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"golangutils/entity"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
 
-/* -------------------------------------------------------------------------- */
-/*                                 MODEL AREA                                 */
-/* -------------------------------------------------------------------------- */
 type TaskFunc func()
-/* ----------------------------- END MODEL AREA ----------------------------- */
+type GitRelease struct {
+	TagName string `json:"tag_name,omitempty"`
+	Version string
+}
 
 func InArray[T any](arr []T, element T) bool {
 	if len(arr) > 0 {
@@ -54,41 +57,33 @@ func IsNil[T any](arg *T) bool {
 	return arg == nil
 }
 
-func HasAndLogError(err error) bool {
-	if err != nil {
-		ErrorLog(err.Error(), false)
-		return true
-	}
-	return false
-}
-
 func ProcessError(err error) {
 	if err != nil {
 		log.Panic(err.Error())
 	}
 }
 
-func Download(url string, destFile string) Response[bool] {
+func Download(url string, destFile string) entity.Response[bool] {
 	// Create a GET request to fetch the file
 	response, err := http.Get(url)
 	if err != nil {
-		return Response[bool]{Data: false, Error: err}
+		return entity.Response[bool]{Data: false, Error: err}
 	}
 	defer response.Body.Close()
 
 	// Create the file to which the downloaded content will be written
 	file, err := os.Create(destFile)
 	if err != nil {
-		return Response[bool]{Data: false, Error: err}
+		return entity.Response[bool]{Data: false, Error: err}
 	}
 	defer file.Close()
 
 	// Copy the response body (file content) to the file
 	_, err = io.Copy(file, response.Body)
 	if err != nil {
-		return Response[bool]{Data: false, Error: err}
+		return entity.Response[bool]{Data: false, Error: err}
 	}
-	return Response[bool]{Data: true}
+	return entity.Response[bool]{Data: true}
 }
 
 func StringReplaceAll(data string, replacer map[string]string) string {
@@ -164,4 +159,54 @@ func GetSubstring(str string, start int, end int) string {
 		index++
 	}
 	return newStr
+}
+
+func StringToInt(data string) entity.Response[int] {
+	response := entity.Response[int]{}
+	dataInt, err := strconv.Atoi(data)
+	response.Data = dataInt
+	if err != nil {
+		response.Error = err
+	}
+	return response
+}
+
+func IntToString(data int) string {
+	return strconv.Itoa(data)
+}
+
+func Sleep(second int) {
+	time.Sleep(time.Second * time.Duration(second))
+}
+
+func GitGetLatestVersionRepo(owner string, repo string, isLatest bool) (GitRelease, error) {
+	logger := NewLoggerUtils()
+	release := GitRelease{}
+	urlsufix := "/latest"
+	if !isLatest {
+		urlsufix = ""
+	}
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases%s", owner, repo, urlsufix)
+	logger.Info("Get Latest git version from url: " + url)
+	var myClient = &http.Client{Timeout: 10 * time.Second}
+	resp, err := myClient.Get(url)
+	if err != nil {
+		return release, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body) // response body is []byte
+	if isLatest {
+		release, err = StringToObject[GitRelease](string(body))
+	} else {
+		var releaseArr []GitRelease
+		releaseArr, err = StringToObject[[]GitRelease](string(body))
+		if len(releaseArr) > 0 {
+			release = releaseArr[0]
+		}
+	}
+	if err != nil {
+		return release, err
+	}
+	release.Version = strings.TrimPrefix(release.TagName, "v")
+	return release, nil
 }
