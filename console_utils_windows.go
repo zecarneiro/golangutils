@@ -8,8 +8,6 @@ import (
 	"syscall"
 )
 
-/* ----------------------------- END MODEL AREA ----------------------------- */
-
-func setSysProAttr(cmd *exec.Cmd) {
+func (c *ConsoleUtils) setSysProAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 }
