@@ -5,11 +5,14 @@ import (
 	"strings"
 )
 
-const (
-	INVALID_PLATFORM_MSG    = "Invalid Platform"
-	NOT_IMPLEMENTED_YET_MSG = "Not impplemented yet!"
-)
+func GetInvalidPlatformMsg() string {
+	return "Invalid Platform"
+}
 
-var (
-	UNKNOW_OS_MSG = "Unknown OS [" + strings.ToLower(runtime.GOOS) + "]"
-)
+func GetNotImplementedYetMsg() string {
+	return "Not impplemented yet!"
+}
+
+func GetUnknowOSMsg() string {
+	return "Unknown OS [" + strings.ToLower(runtime.GOOS) + "]"
+}

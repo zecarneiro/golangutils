@@ -8,15 +8,12 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
 
-/* -------------------------------------------------------------------------- */
-/*                                 MODEL AREA                                 */
-/* -------------------------------------------------------------------------- */
 type TaskFunc func()
-/* ----------------------------- END MODEL AREA ----------------------------- */
 
 func InArray[T any](arr []T, element T) bool {
 	if len(arr) > 0 {
@@ -52,14 +49,6 @@ func StringToObject[T any](data string) (T, error) {
 
 func IsNil[T any](arg *T) bool {
 	return arg == nil
-}
-
-func HasAndLogError(err error) bool {
-	if err != nil {
-		ErrorLog(err.Error(), false)
-		return true
-	}
-	return false
 }
 
 func ProcessError(err error) {
@@ -164,4 +153,18 @@ func GetSubstring(str string, start int, end int) string {
 		index++
 	}
 	return newStr
+}
+
+func StringToInt(data string) Response[int] {
+	response := Response[int]{}
+	dataInt, err := strconv.Atoi(data)
+	response.Data = dataInt
+	if err != nil {
+		response.Error = err
+	}
+	return response
+}
+
+func IntToString(data int) string {
+	return strconv.Itoa(data)
 }
