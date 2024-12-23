@@ -1,4 +1,4 @@
-package golangutils
+package enum
 
 const (
 	NONE    = 0

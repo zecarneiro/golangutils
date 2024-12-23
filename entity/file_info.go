@@ -1,4 +1,4 @@
-package golangutils
+package entity
 
 type FileInfo struct {
 	Files       []string

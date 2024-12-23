@@ -3,6 +3,7 @@ package golangutils
 import (
 	"encoding/json"
 	"errors"
+	"golangutils/entity"
 	"io"
 	"log"
 	"net/http"
@@ -57,27 +58,27 @@ func ProcessError(err error) {
 	}
 }
 
-func Download(url string, destFile string) Response[bool] {
+func Download(url string, destFile string) entity.Response[bool] {
 	// Create a GET request to fetch the file
 	response, err := http.Get(url)
 	if err != nil {
-		return Response[bool]{Data: false, Error: err}
+		return entity.Response[bool]{Data: false, Error: err}
 	}
 	defer response.Body.Close()
 
 	// Create the file to which the downloaded content will be written
 	file, err := os.Create(destFile)
 	if err != nil {
-		return Response[bool]{Data: false, Error: err}
+		return entity.Response[bool]{Data: false, Error: err}
 	}
 	defer file.Close()
 
 	// Copy the response body (file content) to the file
 	_, err = io.Copy(file, response.Body)
 	if err != nil {
-		return Response[bool]{Data: false, Error: err}
+		return entity.Response[bool]{Data: false, Error: err}
 	}
-	return Response[bool]{Data: true}
+	return entity.Response[bool]{Data: true}
 }
 
 func StringReplaceAll(data string, replacer map[string]string) string {
@@ -155,8 +156,8 @@ func GetSubstring(str string, start int, end int) string {
 	return newStr
 }
 
-func StringToInt(data string) Response[int] {
-	response := Response[int]{}
+func StringToInt(data string) entity.Response[int] {
+	response := entity.Response[int]{}
 	dataInt, err := strconv.Atoi(data)
 	response.Data = dataInt
 	if err != nil {
@@ -167,4 +168,8 @@ func StringToInt(data string) Response[int] {
 
 func IntToString(data int) string {
 	return strconv.Itoa(data)
+}
+
+func Sleep(second int) {
+	time.Sleep(time.Second * time.Duration(second))
 }

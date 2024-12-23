@@ -2,7 +2,7 @@ package entity
 
 import (
 	"fmt"
-	"os/exec"
+	"golangutils/enum"
 	"strings"
 )
 
@@ -29,29 +29,20 @@ func (c *Command) copy() Command {
 	}
 }
 
-func (c *Command) getShell(shell string) string {
-	shellRes, err := exec.LookPath("powershell.exe")
-	if err != nil {
-		return shell
-	}
-	return shellRes
-}
-
-func (c *Command) GetCmdWithShell() Command {
-	systemInfo := NewSystemInfo()
+func (c *Command) GetCmdWithShell(shell Shell, platform int) Command {
 	cmdStr := fmt.Sprintf("%s %s", c.Cmd, strings.Join(c.Args, " "))
 	newCmd := c.copy()
-	if systemInfo.IsWindows() {
+	if platform == enum.WINDOWS {
 		if !c.UsePowerShell {
-			newCmd.Cmd = c.getShell("cmd.exe")
+			newCmd.Cmd = "cmd.exe"
 			newCmd.Args = []string{"/c", cmdStr}
 		} else {
-			newCmd.Cmd = c.getShell("powershell.exe")
+			newCmd.Cmd = shell.Path
 			newCmd.Args = []string{cmdStr}
 		}
 	} else if c.UseBash {
-		newCmd.Cmd = "/bin/bash"
-		newCmd.Args = []string{"-c", cmdStr}
+		newCmd.Cmd = shell.Path
+		newCmd.Args = []string{shell.Arg, cmdStr}
 	}
 	return newCmd
 }
