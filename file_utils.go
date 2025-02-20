@@ -25,6 +25,10 @@ func ResolvePath(path string) string {
 	return ""
 }
 
+func JoinPath(elem ...string) string {
+	return filepath.Join(elem...)
+}
+
 func ReadFile(file string) (string, error) {
 	body, err := os.ReadFile(ResolvePath(file))
 	if err != nil {

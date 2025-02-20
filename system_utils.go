@@ -131,3 +131,15 @@ func (s *SystemUtils) Reboot(console ConsoleUtils) error {
 	}
 	return nil
 }
+
+func HasOsArgs() bool {
+	argsWithoutProg := os.Args[1:]
+	return len(argsWithoutProg) > 0
+}
+
+func GetOsArgs() []string {
+	if HasOsArgs() {
+		return os.Args[1:]
+	}
+	return []string{}
+}
