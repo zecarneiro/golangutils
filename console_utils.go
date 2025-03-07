@@ -227,11 +227,47 @@ func (c *ConsoleUtils) Clear() {
 func (c *ConsoleUtils) GetShellPath() entity.Shell {
 	if c.systemUtils.IsWindows() {
 		ps, _ := exec.LookPath("powershell.exe")
-		return entity.Shell{Path: ps, Arg: ""}
+		return entity.Shell{Path: ps, Arg: "-nologo -Command"}
 	} else if c.systemUtils.IsLinux() {
 		return entity.Shell{Path: "/bin/bash", Arg: "-c"}
 	}
 	return entity.Shell{}
+}
+
+func (c *ConsoleUtils) SetFullPermissionLinux(file string) {
+	isCurrentDir := false
+	if len(file) == 0 {
+		currDir, _ := GetCurrentDir()
+		file = currDir
+		isCurrentDir = true
+	}
+	c.loggerUtils.Warn("Set full permission for '" + file + "'")
+	if isCurrentDir {
+		file = "."
+	}
+	command := entity.Command{Cmd: "chmod -R 777 " + file, Verbose: false, IsThrow: false, UseBash: true}
+	c.Exec(command)
+}
+
+func (c *ConsoleUtils) SetFullPermissionWindows(file string) {
+	command := entity.Command{Cmd: "", Verbose: false, IsThrow: false, UsePowerShell: true}
+	if len(file) == 0 {
+		file, _ = GetCurrentDir()
+	}
+	filesInfo, err := ReadDirRecursive(file)
+	if err != nil {
+		c.loggerUtils.Error(err.Error())
+	} else {
+		c.loggerUtils.Warn("Set full permission for '" + file + "'")
+		for _, fileInfo := range filesInfo.Files {
+			command.Cmd = "Unblock-File -Path " + fileInfo
+			c.Exec(command)
+		}
+		for _, fileInfo := range filesInfo.Directories {
+			command.Cmd = "Unblock-File -Path " + fileInfo
+			c.Exec(command)
+		}
+	}
 }
 
 func SetEnv(key string, value string) {
