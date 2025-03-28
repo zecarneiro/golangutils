@@ -277,3 +277,15 @@ func SetEnv(key string, value string) {
 func UnsetEnv(key string) {
 	os.Unsetenv(key)
 }
+
+func SetEnvBulk(envs []entity.EnvData) {
+	for _, data := range envs {
+		SetEnv(data.Key, data.Value)
+	}
+}
+
+func UnsetEnvBulk(envs []entity.EnvData) {
+	for _, data := range envs {
+		UnsetEnv(data.Key)
+	}
+}

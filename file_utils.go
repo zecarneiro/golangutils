@@ -313,3 +313,11 @@ func GetDrives() (r []string) {
 	}
 	return
 }
+
+func Basename(path string) string {
+	return filepath.Base(path)
+}
+
+func Dirname(path string) string {
+	return filepath.Dir(path)
+}
