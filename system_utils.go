@@ -2,144 +2,175 @@ package golangutils
 
 import (
 	"errors"
+	"fmt"
 	"golangutils/entity"
 	"golangutils/enum"
 	"os"
-	"os/user"
-	"regexp"
+	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
 type SystemUtils struct {
-	info        entity.SystemInfo
 	loggerUtils *LoggerUtils
 }
 
-func NewSystemUtils(loggerUtils *LoggerUtils) SystemUtils {
-	return SystemUtils{loggerUtils: loggerUtils}
+func NewSystemUtilsDefault() *SystemUtils {
+	return &SystemUtils{loggerUtils: NewLoggerUtils()}
 }
 
-func (s *SystemUtils) setDistroLinuxName() {
-	osReleaseFile := "/etc/os-release"
-	callback := func(line string, err error) {
-		match, err := regexp.MatchString("^NAME=", line)
-		if err == nil && match {
-			lineArr := strings.Split(line, "=")
-			s.info.PlatformName = lineArr[1]
-			s.info.PlatformName = strings.Trim(s.info.PlatformName, "\"")
-			s.info.PlatformName = strings.TrimSpace(s.info.PlatformName)
-			s.info.PlatformName = strings.ToLower(s.info.PlatformName)
-		}
-	}
-	ReadFileLineByLine(osReleaseFile, callback)
+func NewSystemUtils(loggerUtils *LoggerUtils) *SystemUtils {
+	return &SystemUtils{loggerUtils: loggerUtils}
 }
 
-func (s *SystemUtils) setPlatform() {
-	if s.info.PlatformName == "windows" {
-		s.info.Platform = enum.WINDOWS
-	} else if s.info.PlatformName == "darwin" {
-		s.info.Platform = enum.DARWIN
-	} else if s.info.PlatformName == "linux" {
-		s.info.Platform = enum.LINUX
-		s.setDistroLinuxName()
-	} else {
-		s.info.Platform = enum.NONE
-	}
-}
-
-func (s *SystemUtils) getEol() string {
+func (s *SystemUtils) Eol() string {
 	if s.IsWindows() {
 		return "\r\n"
 	}
 	return "\n"
 }
 
-func (s *SystemUtils) Info() entity.SystemInfo {
-	if s.info == (entity.SystemInfo{}) {
-		s.info = entity.SystemInfo{
-			TempDir:      os.TempDir(),
-			PlatformName: runtime.GOOS,
-			Cpu:          entity.CpuInfo{Cpu: runtime.NumCPU(), Arch: runtime.GOARCH},
-		}
-
-		// Platform
-		s.setPlatform()
-
-		// EOL
-		s.info.Eol = s.getEol()
-
-		// User Info and Home dir
-		currentUser, err := user.Current()
-		if err == nil {
-			s.info.UserInfo = *currentUser
-			s.info.HomeDir = s.info.UserInfo.HomeDir
-		}
-
-		// Hostname
-		hostname, err := os.Hostname()
-		if err == nil {
-			s.info.Hostname = hostname
-		}
-	}
-	return s.info
+func (s *SystemUtils) Platform() enum.EPlatform {
+	platform := runtime.GOOS
+	return enum.EPlatformFromValue(platform)
 }
 
 func (s *SystemUtils) IsWindows() bool {
-	return s.Info().Platform == enum.WINDOWS
-}
-
-func (s *SystemUtils) IsDarwin() bool {
-	return s.Info().Platform == enum.DARWIN
+	return s.Platform() == enum.WINDOWS
 }
 
 func (s *SystemUtils) IsLinux() bool {
-	return s.Info().Platform == enum.LINUX
+	return s.Platform() == enum.LINUX
 }
 
-func (s *SystemUtils) ValidatePlatform(canExit bool, logger LoggerUtils) bool {
-	var isValid = s.Info().Platform != enum.NONE
-	if !isValid {
-		logger.Error(GetUnknowOSMsg())
-		if canExit {
-			os.Exit(1)
+func (s *SystemUtils) IsDarwin() bool {
+	return s.Platform() == enum.DARWIN
+}
+
+func (s *SystemUtils) IsUnix() bool {
+	return s.Platform() == enum.UNIX
+}
+
+func (s *SystemUtils) IsPlatform(platforms []enum.EPlatform) bool {
+	return InArray(platforms, s.Platform())
+}
+
+func (s *SystemUtils) HomeDir() string {
+	home, _ := os.UserHomeDir()
+	return home
+}
+
+func (s *SystemUtils) TempDir() string {
+	return os.TempDir()
+}
+
+func (s *SystemUtils) OSName() string {
+	osName := GetUnknownMsg("%s OS NAME")
+	switch s.Platform() {
+	case enum.WINDOWS:
+		cmd := exec.Command("powershell", "-Command", "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption")
+		output, err := cmd.Output()
+		if err == nil && len(output) > 0 {
+			osName = strings.TrimSpace(string(output))
 		}
+	case enum.LINUX:
+		alreadySet := false
+		ReadFileLineByLine("/etc/os-release", func(lineData string, err error) {
+			if strings.HasPrefix(lineData, "PRETTY_NAME=") && !alreadySet {
+				osName = strings.Trim(strings.TrimPrefix(lineData, "PRETTY_NAME="), "\"")
+				alreadySet = true
+			}
+		})
+	case enum.DARWIN:
+		out, _ := exec.Command("sw_vers", "-productName").Output()
+		ver, _ := exec.Command("sw_vers", "-productVersion").Output()
+		osName = fmt.Sprintf("%s %s", strings.TrimSpace(string(out)), strings.TrimSpace(string(ver)))
+	case enum.FREEBSD, enum.OPENBSD:
+		out, _ := exec.Command("uname", "-sr").Output()
+		osName = strings.TrimSpace(string(out))
 	}
-	return isValid
+	return osName
 }
 
-func (s *SystemUtils) Reboot(console ConsoleUtils) error {
+func (s *SystemUtils) Reboot() error {
 	var cmd entity.Command
 	if s.IsWindows() {
 		cmd = entity.Command{
-			Cmd:     "shutdown",
-			Args:    []string{"/r", "/t", "0"},
-			EnvVars: os.Environ(),
+			Cmd:  "shutdown",
+			Args: []string{"/r", "/t", "0"},
 		}
 	} else if s.IsLinux() {
 		cmd = entity.Command{
-			Cmd:     "sudo",
-			Args:    []string{"shutdown", "-r", "now"},
-			EnvVars: os.Environ(),
+			Cmd:  "sudo",
+			Args: []string{"shutdown", "-r", "now"},
 		}
 	} else if s.IsDarwin() {
 		return errors.New(GetNotImplementedYetMsg())
 	}
-	if console.Confirm("Will be restart PC. Continue", true) {
+	console := NewConsoleUtilsDefault()
+	if Confirm("Will be restart PC. Continue", true) {
 		console.ExecRealTime(cmd)
 		os.Exit(0)
 	}
 	return nil
 }
 
-func HasOsArgs() bool {
-	argsWithoutProg := os.Args[1:]
-	return len(argsWithoutProg) > 0
+func GetParentProcess(ppid int) (string, error) {
+	systemUtils := NewSystemUtilsDefault()
+	switch systemUtils.Platform() {
+	case enum.LINUX, enum.DARWIN, enum.UNIX:
+		out, err := exec.Command("ps", "-p", strconv.Itoa(ppid), "-o", "comm=").Output()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(string(out)), nil
+	case enum.WINDOWS:
+		out, err := exec.Command(
+			"powershell",
+			"-Command",
+			fmt.Sprintf("(Get-Process -Id %d).Name", ppid),
+		).Output()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(string(out)), nil
+	}
+	return "", errors.New(GetUnsupportedPlatformMsg())
 }
 
-func GetOsArgs() []string {
-	if HasOsArgs() {
-		return os.Args[1:]
+func EnvVarExists(name string) bool {
+	_, exists := os.LookupEnv(name)
+	return exists
+}
+
+func EnvVarValuesAsList(name string) []string {
+	value := os.Getenv(name)
+	if value == "" {
+		return []string{}
 	}
-	return []string{}
+	// os.PathListSeparator é ';' no Windows e ':' no Linux/macOS
+	parts := strings.Split(value, string(os.PathListSeparator))
+	result := []string{}
+	for _, part := range parts {
+		result = append(result, part)
+	}
+	return result
+}
+
+func EnvVarHasValue(name, expectedValue string) bool {
+	return InArray(EnvVarValuesAsList(name), strings.TrimSpace(expectedValue))
+}
+
+func EnvVarList() map[string][]string {
+	data := make(map[string][]string)
+	for _, env := range os.Environ() {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		name := parts[0]
+		data[name] = EnvVarValuesAsList(name)
+	}
+	return data
 }

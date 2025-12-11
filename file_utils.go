@@ -85,23 +85,23 @@ func DeleteFile(file string) error {
 	return nil
 }
 
-func FileType(fileName string) (int, error) {
-	var typeFile int
+func FileType(fileName string) enum.EFileType {
+	var typeFile enum.EFileType
 	file, err := os.Open(ResolvePath(fileName))
 	if err != nil {
-		return enum.FileTypeNone, err
+		return enum.EFileTypeFromValue(-1)
 	}
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return enum.FileTypeNone, err
+		return enum.EFileTypeFromValue(-1)
 	}
 	if fileInfo.IsDir() {
-		typeFile = enum.FileTypeDirectory
+		typeFile = enum.EFileTypeFromValue(enum.DIRECTORY)
 	} else {
-		typeFile = enum.FileTypeFile
+		typeFile = enum.EFileTypeFromValue(enum.FILE)
 	}
 	defer file.Close()
-	return typeFile, nil
+	return typeFile
 }
 
 func ReadDir(dir string) (entity.FileInfo, error) {
@@ -131,11 +131,8 @@ func ReadDirRecursive(dir string) (entity.FileInfo, error) {
 				return err
 			}
 			if path != "." {
-				info, err := FileType(path)
-				if err != nil {
-					return err
-				}
-				if info == enum.FileTypeDirectory {
+				info := FileType(path)
+				if info == enum.DIRECTORY {
 					files.Directories = append(files.Directories, path)
 				} else {
 					files.Files = append(files.Files, path)
@@ -172,6 +169,18 @@ func FileExist(file string) bool {
 	return err == nil
 }
 
+func IsDir(file string) bool {
+	return FileExist(file) && FileType(file) == enum.DIRECTORY
+}
+
+func IsFile(file string) bool {
+	return FileExist(file) && FileType(file) == enum.FILE
+}
+
+func IsSymbolicLink(file string) bool {
+	return FileExist(file) && FileType(file) == enum.SYMBOLIC_LINK
+}
+
 func ReadJsonFile[T any](jsonFile string) (T, error) {
 	data, err := ReadFile(ResolvePath(jsonFile))
 	if err != nil {
@@ -181,10 +190,19 @@ func ReadJsonFile[T any](jsonFile string) (T, error) {
 	return StringToObject[T](data)
 }
 
-func WriteJsonFile[T any](jsonFile string, data T) error {
-	dataStr, err := ObjectToString(data)
-	if err != nil {
-		return err
+func WriteJsonFile[T any](jsonFile string, data T, escapeHtml bool) error {
+	var dataStr string
+	var err error
+	if escapeHtml {
+		dataStr, err = ObjectToStringEscapeHtml(data)
+		if err != nil {
+			return err
+		}
+	} else {
+		dataStr, err = ObjectToString(data)
+		if err != nil {
+			return err
+		}
 	}
 	return WriteFile(ResolvePath(jsonFile), dataStr, false)
 }

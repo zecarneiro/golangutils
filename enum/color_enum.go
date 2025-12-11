@@ -1,5 +1,7 @@
 package enum
 
+type EColor string
+
 const (
 	COLOR_RESET  = "\033[0m"
 	COLOR_RED    = "\033[31m"

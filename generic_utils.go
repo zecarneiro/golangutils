@@ -1,14 +1,15 @@
 package golangutils
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"golangutils/entity"
 	"io"
 	"log"
+	"net"
 	"net/http"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -47,6 +48,18 @@ func ObjectToString(data any) (string, error) {
 	return string(jsonData), err
 }
 
+func ObjectToStringEscapeHtml(data any) (string, error) {
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	err := encoder.Encode(data)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
 func StringToObject[T any](data string) (T, error) {
 	var object T
 	err := json.Unmarshal([]byte(data), &object)
@@ -57,33 +70,17 @@ func IsNil[T any](arg *T) bool {
 	return arg == nil
 }
 
+func Ternary[T any](condition bool, resultTrue, resultFalse T) T {
+	if condition {
+		return resultTrue
+	}
+	return resultFalse
+}
+
 func ProcessError(err error) {
 	if err != nil {
 		log.Panic(err.Error())
 	}
-}
-
-func Download(url string, destFile string) entity.Response[bool] {
-	// Create a GET request to fetch the file
-	response, err := http.Get(url)
-	if err != nil {
-		return entity.Response[bool]{Data: false, Error: err}
-	}
-	defer response.Body.Close()
-
-	// Create the file to which the downloaded content will be written
-	file, err := os.Create(destFile)
-	if err != nil {
-		return entity.Response[bool]{Data: false, Error: err}
-	}
-	defer file.Close()
-
-	// Copy the response body (file content) to the file
-	_, err = io.Copy(file, response.Body)
-	if err != nil {
-		return entity.Response[bool]{Data: false, Error: err}
-	}
-	return entity.Response[bool]{Data: true}
 }
 
 func StringReplaceAll(data string, replacer map[string]string) string {
@@ -121,15 +118,12 @@ func FuncCall[T interface{}](caller interface{}, params ...interface{}) (T, erro
 }
 
 func HasInternet() bool {
-	timeout := time.Duration(5000 * time.Millisecond)
-	client := http.Client{
-		Timeout: timeout,
-	}
-	//default url to check connection is http://google.com
-	_, err := client.Get("https://google.com")
+	timeout := 3 * time.Second
+	conn, err := net.DialTimeout("tcp", "8.8.8.8:53", timeout) // DNS do Google
 	if err != nil {
 		return false
 	}
+	defer conn.Close()
 	return true
 }
 
@@ -209,4 +203,13 @@ func GitGetLatestVersionRepo(owner string, repo string, isLatest bool) (GitRelea
 	}
 	release.Version = strings.TrimPrefix(release.TagName, "v")
 	return release, nil
+}
+
+func IsValidJSON(s string) bool {
+	var js any
+	return json.Unmarshal([]byte(s), &js) == nil
+}
+
+func BytesToMB(b int64) float64 {
+	return float64(b) / 1024 / 1024
 }

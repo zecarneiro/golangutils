@@ -10,13 +10,17 @@ import (
 )
 
 type LoggerUtils struct {
-	keepLine bool
-	logFile  string
+	keepLine        bool
+	logFile         string
+	HeaderLength    int
+	SeparatorLength int
 }
 
-func NewLoggerUtils() LoggerUtils {
-	return LoggerUtils{
-		keepLine: false,
+func NewLoggerUtils() *LoggerUtils {
+	return &LoggerUtils{
+		keepLine:        false,
+		HeaderLength:    15,
+		SeparatorLength: 40,
 	}
 }
 
@@ -123,7 +127,7 @@ func (l *LoggerUtils) Title(data string) {
 	l.log(separator)
 }
 
-func (l *LoggerUtils) Header(data string, length int) {
+func (l *LoggerUtils) HeaderByLength(data string, length int) {
 	data = fmt.Sprintf(" %s ", data)
 	if len(data) < length-2 {
 		newLength := length - len(data)
@@ -141,7 +145,11 @@ func (l *LoggerUtils) Header(data string, length int) {
 	l.log(fmt.Sprintf("#%s#", data))
 }
 
-func (l *LoggerUtils) Separator(length int) {
+func (l *LoggerUtils) Header(data string) {
+	l.HeaderByLength(data, len(data)+l.HeaderLength)
+}
+
+func (l *LoggerUtils) SeparatorByLength(length int) {
 	data := "# "
 	if length < 6 {
 		length = 6
@@ -151,6 +159,10 @@ func (l *LoggerUtils) Separator(length int) {
 	}
 	data += " #"
 	l.log(data)
+}
+
+func (l *LoggerUtils) Separator() {
+	l.SeparatorByLength(l.SeparatorLength)
 }
 
 func (l *LoggerUtils) Help(appName string, description string, usages []string, args []string, others []string) {
