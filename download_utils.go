@@ -20,7 +20,7 @@ type progressWriter struct {
 	lastWrite  atomic.Int64 // unix nano timestamp
 }
 
-type Downloader struct {
+type downloader struct {
 	Url         string
 	Filepath    string
 	loggerUtils LoggerUtils
@@ -41,7 +41,7 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-func (d *Downloader) resolveFilepath() (string, error) {
+func (d *downloader) resolveFilepath() (string, error) {
 	if d.Filepath != "" {
 		return d.Filepath, nil
 	}
@@ -54,7 +54,7 @@ func (d *Downloader) resolveFilepath() (string, error) {
 	filename := path.Base(parsed.Path)
 
 	// Caso a URL não tenha um nome de ficheiro válido
-	if filename == "." || filename == "/" || filename == "" {
+	if filename == "." || filename == "/" || filename == "" || filename == ".." {
 		filename = "downloaded_file"
 	}
 
@@ -62,7 +62,7 @@ func (d *Downloader) resolveFilepath() (string, error) {
 }
 
 func Download(urlData string, output string) error {
-	downloader := Downloader{
+	downloader := downloader{
 		Url:         urlData,
 		Filepath:    output,
 		loggerUtils: *NewLoggerUtils(),

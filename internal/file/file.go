@@ -1,44 +1,59 @@
-package golangutils
+package file
 
 import (
 	"bufio"
 	"errors"
 	"fmt"
-	"golangutils/entity"
-	"golangutils/enum"
+	"golangutils/entities"
+	"golangutils/enums"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
 )
 
-func GetCurrentDir() (string, error) {
+type File struct {
+	log *log
+}
+
+var Default File
+
+func NewDefault() *File {
+	return &File{
+		log: NewLoggerUtils(),
+	}
+}
+
+func NewFileUtils(loggerUtils *LoggerUtils) *FileUtils {
+	return &FileUtils{loggerUtils: loggerUtils}
+}
+
+func (FileUtils) GetCurrentDir() (string, error) {
 	return os.Getwd()
 }
 
-func ResolvePath(path string) string {
+func (FileUtils) ResolvePath(path ...string) string {
 	if len(path) > 0 {
-		return filepath.FromSlash(path)
+		return filepath.FromSlash(StaticFileUtils.JoinPath(path...))
 	}
 	return ""
 }
 
-func JoinPath(elem ...string) string {
+func (FileUtils) JoinPath(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
-func ReadFile(file string) (string, error) {
-	body, err := os.ReadFile(ResolvePath(file))
+func (FileUtils) ReadFile(file string) (string, error) {
+	body, err := os.ReadFile(StaticFileUtils.ResolvePath(file))
 	if err != nil {
 		return "", err
 	}
 	return string(body), err
 }
 
-func ReadFileLineByLine(filePath string, callback func(string, error)) {
-	file, err := os.Open(ResolvePath(filePath))
+func (FileUtils) ReadFileLineByLine(filePath string, callback func(string, error)) {
+	file, err := os.Open(StaticFileUtils.ResolvePath(filePath))
 	if err != nil {
 		callback("", err)
 	}
@@ -52,10 +67,10 @@ func ReadFileLineByLine(filePath string, callback func(string, error)) {
 	}
 }
 
-func WriteFile(file string, data string, isAppend bool) error {
+func (FileUtils) WriteFile(file string, data string, isAppend bool) error {
 	var fileStream *os.File
 	var err error
-	file = ResolvePath(file)
+	file = StaticFileUtils.ResolvePath(file)
 	if isAppend && FileExist(file) {
 		fileStream, err = os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0644)
 	} else {
@@ -74,7 +89,7 @@ func WriteFile(file string, data string, isAppend bool) error {
 	return nil
 }
 
-func DeleteFile(file string) error {
+func (FileUtils) DeleteFile(file string) error {
 	file = ResolvePath(file)
 	if FileExist(file) {
 		err := os.Remove(file)
@@ -85,31 +100,31 @@ func DeleteFile(file string) error {
 	return nil
 }
 
-func FileType(fileName string) enum.EFileType {
-	var typeFile enum.EFileType
+func (FileUtils) FileType(fileName string) enums.EFileType {
+	var typeFile enums.EFileType
 	file, err := os.Open(ResolvePath(fileName))
 	if err != nil {
-		return enum.EFileTypeFromValue(-1)
+		return enums.EFileTypeFromValue(-1)
 	}
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return enum.EFileTypeFromValue(-1)
+		return enums.EFileTypeFromValue(-1)
 	}
 	if fileInfo.IsDir() {
-		typeFile = enum.EFileTypeFromValue(enum.DIRECTORY)
+		typeFile = enums.EFileTypeFromValue(enums.DIRECTORY)
 	} else {
-		typeFile = enum.EFileTypeFromValue(enum.FILE)
+		typeFile = enums.EFileTypeFromValue(enums.FILE)
 	}
 	defer file.Close()
 	return typeFile
 }
 
-func ReadDir(dir string) (entity.FileInfo, error) {
+func (FileUtils) ReadDir(dir string) (entities.FileInfo, error) {
 	dir = ResolvePath(dir)
-	var filesData entity.FileInfo
+	var filesData entities.FileInfo
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return entity.FileInfo{}, err
+		return entities.FileInfo{}, err
 	} else {
 		for _, file := range files {
 			if file.IsDir() {
@@ -122,17 +137,17 @@ func ReadDir(dir string) (entity.FileInfo, error) {
 	return filesData, nil
 }
 
-func ReadDirRecursive(dir string) (entity.FileInfo, error) {
+func ReadDirRecursive(dir string) (entities.FileInfo, error) {
 	dir = ResolvePath(dir)
-	files := entity.FileInfo{Directories: []string{}, Files: []string{}}
+	files := entities.FileInfo{Directories: []string{}, Files: []string{}}
 	err := filepath.Walk(dir,
 		func(path string, _ os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
-			if path != "." {
+			if path != "." && path != ".." {
 				info := FileType(path)
-				if info == enum.DIRECTORY {
+				if info == enums.DIRECTORY {
 					files.Directories = append(files.Directories, path)
 				} else {
 					files.Files = append(files.Files, path)
@@ -142,7 +157,7 @@ func ReadDirRecursive(dir string) (entity.FileInfo, error) {
 		},
 	)
 	if err != nil {
-		return entity.FileInfo{}, err
+		return entities.FileInfo{}, err
 	}
 	return files, nil
 }
@@ -170,15 +185,15 @@ func FileExist(file string) bool {
 }
 
 func IsDir(file string) bool {
-	return FileExist(file) && FileType(file) == enum.DIRECTORY
+	return FileExist(file) && FileType(file) == enums.DIRECTORY
 }
 
 func IsFile(file string) bool {
-	return FileExist(file) && FileType(file) == enum.FILE
+	return FileExist(file) && FileType(file) == enums.FILE
 }
 
 func IsSymbolicLink(file string) bool {
-	return FileExist(file) && FileType(file) == enum.SYMBOLIC_LINK
+	return FileExist(file) && FileType(file) == enums.SYMBOLIC_LINK
 }
 
 func ReadJsonFile[T any](jsonFile string) (T, error) {
@@ -268,8 +283,18 @@ func CopyDir(src string, dst string) error {
 	return nil
 }
 
+func MoveFile(src string, dst string) error {
+	if src == "." || src == ".." || dst == "." || dst == ".." {
+
+	}
+}
+
 func GetExecutableDir() (string, error) {
-	return filepath.Abs(filepath.Dir(os.Args[0]))
+	execPath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return Dirname(execPath), nil
 }
 
 func ReadFileInByte(filename string) ([]byte, error) {
@@ -296,19 +321,21 @@ func ReadFileInByte(filename string) ([]byte, error) {
 	return byteArr, nil
 }
 
-func CreateDirectory(dir string, recursive bool) {
+func CreateDirectory(dir string, recursive bool) error {
 	dir = ResolvePath(dir)
-	if _, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
-		var err error
-		if recursive {
-			err = os.MkdirAll(dir, os.ModePerm)
-		} else {
-			err = os.Mkdir(dir, os.ModePerm)
-		}
-		if err != nil {
-			log.Println(err)
+	var err error
+	if IsDir(dir) {
+		err = nil
+	} else {
+		if _, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
+			if recursive {
+				err = os.MkdirAll(dir, os.ModePerm)
+			} else {
+				err = os.Mkdir(dir, os.ModePerm)
+			}
 		}
 	}
+	return err
 }
 
 func DeleteDirectory(directory string) error {

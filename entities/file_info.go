@@ -1,4 +1,4 @@
-package entity
+package entities
 
 type FileInfo struct {
 	Files       []string

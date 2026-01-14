@@ -1,4 +1,4 @@
-package enum
+package enums
 
 import "strings"
 
@@ -19,7 +19,7 @@ func EShellFromValue(value string) EShell {
 	switch val {
 	case "pwsh", "powershell", "pwsh.exe", "powershell.exe":
 		return POWERSHELL
-	case "bash":
+	case "bash", "bash.exe":
 		return BASH
 	case "zsh":
 		return ZSH

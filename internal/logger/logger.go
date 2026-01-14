@@ -1,30 +1,33 @@
-package golangutils
+package logger
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"golangutils/enum"
+	"golangutils/enums"
 	"log"
 	"os"
 	"strings"
 	"time"
 )
 
-type LoggerUtils struct {
-	keepLine        bool
-	logFile         string
+type Logger struct {
+	keepLine bool
+	logFile  string
+
 	HeaderLength    int
 	SeparatorLength int
 }
 
-func NewLoggerUtils() *LoggerUtils {
-	return &LoggerUtils{
+func New() *Logger {
+	return &Logger{
 		keepLine:        false,
 		HeaderLength:    15,
 		SeparatorLength: 40,
 	}
 }
 
-func (l *LoggerUtils) logToFile(data string, logType string) {
+func (l *Logger) logToFile(data string, logType string) {
 	if len(l.logFile) > 0 {
 		f, err := os.OpenFile(l.logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
@@ -50,7 +53,7 @@ func (l *LoggerUtils) GetTimeAndDataForLogFile(data string, logType string) stri
 }
 
 func FormatDataWithColor(data string, color string) string {
-	return fmt.Sprintf("%s%s%s", string(color), data, string(enum.COLOR_RESET))
+	return fmt.Sprintf("%s%s%s", string(color), data, string(enums.COLOR_RESET))
 }
 
 func (l *LoggerUtils) log(data string) {
@@ -74,42 +77,54 @@ func (l *LoggerUtils) Log(data string) {
 func (l *LoggerUtils) Debug(data string) {
 	l.logToFile(data, "debug")
 	l.EnableKeepLine()
-	l.log("[DEBUG] ")
+	l.log(fmt.Sprintf("[%s] ", "DEBUG"))
 	l.log(data)
 }
 
 func (l *LoggerUtils) Warn(data string) {
 	l.logToFile(data, "warn")
 	l.EnableKeepLine()
-	l.log(fmt.Sprintf("[%s] ", FormatDataWithColor("WARN", enum.COLOR_YELLOW)))
+	l.log(fmt.Sprintf("[%s] ", FormatDataWithColor("WARN", enums.COLOR_YELLOW)))
 	l.log(data)
 }
 
-func (l *LoggerUtils) Error(data string) {
-	l.logToFile(data, "error")
+func (l *LoggerUtils) Error(data any) {
+	var dataStr string
+	if data == nil {
+		log.Fatal("Receive nil")
+	}
+	switch v := data.(type) {
+	case error:
+		dataStr = v.Error()
+	case string:
+		dataStr = v
+	default:
+		dataStr = fmt.Sprintf("%v", v)
+	}
+	l.logToFile(dataStr, "error")
 	l.EnableKeepLine()
-	l.log(fmt.Sprintf("[%s] ", FormatDataWithColor("ERROR", enum.COLOR_RED)))
-	l.log(data)
+	l.log(fmt.Sprintf("[%s] ", FormatDataWithColor("ERROR", enums.COLOR_RED)))
+	l.log(dataStr)
 }
 
 func (l *LoggerUtils) Info(data string) {
 	l.logToFile(data, "info")
 	l.EnableKeepLine()
-	l.log(fmt.Sprintf("[%s] ", FormatDataWithColor("INFO", enum.COLOR_BLUE)))
+	l.log(fmt.Sprintf("[%s] ", FormatDataWithColor("INFO", enums.COLOR_BLUE)))
 	l.log(data)
 }
 
 func (l *LoggerUtils) Ok(data string) {
 	l.logToFile(data, "ok")
 	l.EnableKeepLine()
-	l.log(fmt.Sprintf("[%s] ", FormatDataWithColor("OK", enum.COLOR_GREEN)))
+	l.log(fmt.Sprintf("[%s] ", FormatDataWithColor("OK", enums.COLOR_GREEN)))
 	l.log(data)
 }
 
 func (l *LoggerUtils) Prompt(data string) {
 	l.logToFile(data, "prompt")
 	l.EnableKeepLine()
-	l.log(fmt.Sprintf("%s ", FormatDataWithColor(">>>", enum.COLOR_GRAY)))
+	l.log(fmt.Sprintf("%s ", FormatDataWithColor(">>>", enums.COLOR_GRAY)))
 	l.log(data)
 }
 
@@ -127,7 +142,8 @@ func (l *LoggerUtils) Title(data string) {
 	l.log(separator)
 }
 
-func (l *LoggerUtils) HeaderByLength(data string, length int) {
+func (l *LoggerUtils) Header(data string) {
+	length := len(data) + l.HeaderLength
 	data = fmt.Sprintf(" %s ", data)
 	if len(data) < length-2 {
 		newLength := length - len(data)
@@ -145,24 +161,16 @@ func (l *LoggerUtils) HeaderByLength(data string, length int) {
 	l.log(fmt.Sprintf("#%s#", data))
 }
 
-func (l *LoggerUtils) Header(data string) {
-	l.HeaderByLength(data, len(data)+l.HeaderLength)
-}
-
-func (l *LoggerUtils) SeparatorByLength(length int) {
+func (l *LoggerUtils) Separator() {
 	data := "# "
-	if length < 6 {
-		length = 6
+	if l.SeparatorLength < 6 {
+		l.SeparatorLength = 6
 	}
-	for i := 1; i < length-4; i++ {
+	for i := 1; i < l.SeparatorLength-4; i++ {
 		data += "-"
 	}
 	data += " #"
 	l.log(data)
-}
-
-func (l *LoggerUtils) Separator() {
-	l.SeparatorByLength(l.SeparatorLength)
 }
 
 func (l *LoggerUtils) Help(appName string, description string, usages []string, args []string, others []string) {
@@ -193,4 +201,11 @@ func (l *LoggerUtils) HasAndLogError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func (l *LoggerUtils) JSON(data string) {
+	var formatado bytes.Buffer
+	err := json.Indent(&formatado, []byte(data), "", "  ")
+	ProcessError(err)
+	l.log(formatado.String())
 }

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golangutils/entity"
+	"golangutils/entities"
 	"io"
 	"log"
 	"net"
@@ -155,8 +155,8 @@ func GetSubstring(str string, start int, end int) string {
 	return newStr
 }
 
-func StringToInt(data string) entity.Response[int] {
-	response := entity.Response[int]{}
+func StringToInt(data string) entities.Response[int] {
+	response := entities.Response[int]{}
 	dataInt, err := strconv.Atoi(data)
 	response.Data = dataInt
 	if err != nil {

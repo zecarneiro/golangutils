@@ -3,8 +3,8 @@ package golangutils
 import (
 	"errors"
 	"fmt"
-	"golangutils/entity"
-	"golangutils/enum"
+	"golangutils/entities"
+	"golangutils/enums"
 	"os"
 	"os/exec"
 	"runtime"
@@ -31,28 +31,28 @@ func (s *SystemUtils) Eol() string {
 	return "\n"
 }
 
-func (s *SystemUtils) Platform() enum.EPlatform {
+func (s *SystemUtils) Platform() enums.EPlatform {
 	platform := runtime.GOOS
-	return enum.EPlatformFromValue(platform)
+	return enums.EPlatformFromValue(platform)
 }
 
 func (s *SystemUtils) IsWindows() bool {
-	return s.Platform() == enum.WINDOWS
+	return s.Platform() == enums.WINDOWS
 }
 
 func (s *SystemUtils) IsLinux() bool {
-	return s.Platform() == enum.LINUX
+	return s.Platform() == enums.LINUX
 }
 
 func (s *SystemUtils) IsDarwin() bool {
-	return s.Platform() == enum.DARWIN
+	return s.Platform() == enums.DARWIN
 }
 
 func (s *SystemUtils) IsUnix() bool {
-	return s.Platform() == enum.UNIX
+	return s.Platform() == enums.UNIX
 }
 
-func (s *SystemUtils) IsPlatform(platforms []enum.EPlatform) bool {
+func (s *SystemUtils) IsPlatform(platforms []enums.EPlatform) bool {
 	return InArray(platforms, s.Platform())
 }
 
@@ -68,13 +68,13 @@ func (s *SystemUtils) TempDir() string {
 func (s *SystemUtils) OSName() string {
 	osName := GetUnknownMsg("%s OS NAME")
 	switch s.Platform() {
-	case enum.WINDOWS:
+	case enums.WINDOWS:
 		cmd := exec.Command("powershell", "-Command", "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption")
 		output, err := cmd.Output()
 		if err == nil && len(output) > 0 {
 			osName = strings.TrimSpace(string(output))
 		}
-	case enum.LINUX:
+	case enums.LINUX:
 		alreadySet := false
 		ReadFileLineByLine("/etc/os-release", func(lineData string, err error) {
 			if strings.HasPrefix(lineData, "PRETTY_NAME=") && !alreadySet {
@@ -82,11 +82,11 @@ func (s *SystemUtils) OSName() string {
 				alreadySet = true
 			}
 		})
-	case enum.DARWIN:
+	case enums.DARWIN:
 		out, _ := exec.Command("sw_vers", "-productName").Output()
 		ver, _ := exec.Command("sw_vers", "-productVersion").Output()
 		osName = fmt.Sprintf("%s %s", strings.TrimSpace(string(out)), strings.TrimSpace(string(ver)))
-	case enum.FREEBSD, enum.OPENBSD:
+	case enums.FREEBSD, enums.OPENBSD:
 		out, _ := exec.Command("uname", "-sr").Output()
 		osName = strings.TrimSpace(string(out))
 	}
@@ -94,21 +94,21 @@ func (s *SystemUtils) OSName() string {
 }
 
 func (s *SystemUtils) Reboot() error {
-	var cmd entity.Command
+	var cmd entities.Command
 	if s.IsWindows() {
-		cmd = entity.Command{
+		cmd = entities.Command{
 			Cmd:  "shutdown",
 			Args: []string{"/r", "/t", "0"},
 		}
 	} else if s.IsLinux() {
-		cmd = entity.Command{
+		cmd = entities.Command{
 			Cmd:  "sudo",
 			Args: []string{"shutdown", "-r", "now"},
 		}
 	} else if s.IsDarwin() {
 		return errors.New(GetNotImplementedYetMsg())
 	}
-	console := NewConsoleUtilsDefault()
+	console := NewConsoleUtils()
 	if Confirm("Will be restart PC. Continue", true) {
 		console.ExecRealTime(cmd)
 		os.Exit(0)
@@ -116,27 +116,69 @@ func (s *SystemUtils) Reboot() error {
 	return nil
 }
 
-func GetParentProcess(ppid int) (string, error) {
-	systemUtils := NewSystemUtilsDefault()
-	switch systemUtils.Platform() {
-	case enum.LINUX, enum.DARWIN, enum.UNIX:
-		out, err := exec.Command("ps", "-p", strconv.Itoa(ppid), "-o", "comm=").Output()
+func (s *SystemUtils) GetParentProcessInfo(ppid int) (*entities.ParentProcessInfo, error) {
+	var parentInfo *entities.ParentProcessInfo
+	switch s.Platform() {
+	case enums.LINUX, enums.DARWIN, enums.UNIX:
+		out, err := exec.Command("ps", "-p", strconv.Itoa(ppid), "-o", "ppid=,comm=").Output()
 		if err != nil {
-			return "", err
+			return nil, err
+		} else {
+			fields := strings.Fields(string(out))
+			if len(fields) >= 2 {
+				parentPID, _ := strconv.Atoi(fields[0])
+				name := fields[1]
+				return &entities.ParentProcessInfo{
+					Pid:  ppid,
+					PPid: parentPID,
+					Name: name,
+				}, nil
+			}
 		}
-		return strings.TrimSpace(string(out)), nil
-	case enum.WINDOWS:
+	case enums.WINDOWS:
 		out, err := exec.Command(
 			"powershell",
 			"-Command",
-			fmt.Sprintf("(Get-Process -Id %d).Name", ppid),
+			fmt.Sprintf(
+				"Get-CimInstance Win32_Process -Filter 'ProcessId = %d' | Select-Object Name, ParentProcessId | ForEach-Object { \"$($_.Name),$($_.ParentProcessId)\" }",
+				ppid,
+			),
 		).Output()
 		if err != nil {
-			return "", err
+			return parentInfo, err
 		}
-		return strings.TrimSpace(string(out)), nil
+		parts := strings.Split(strings.TrimSpace(string(out)), ",")
+		if len(parts) >= 2 {
+			parentPID, _ := strconv.Atoi(parts[1])
+			name := parts[0]
+			return &entities.ParentProcessInfo{
+				Pid:  ppid,
+				PPid: parentPID,
+				Name: name,
+			}, nil
+		}
 	}
-	return "", errors.New(GetUnsupportedPlatformMsg())
+	return nil, errors.New(GetUnsupportedPlatformMsg())
+}
+
+func (s *SystemUtils) GetAncestralProcessInfo(currentPPid int) (*entities.ParentProcessInfo, error) {
+	var err error
+	var ancestralProcess *entities.ParentProcessInfo
+	for {
+		if currentPPid <= 4 {
+			break
+		}
+		p, err_res := s.GetParentProcessInfo(currentPPid)
+		if err_res != nil || p == nil || p.Pid == 0 {
+			break
+		}
+		ancestralProcess = p
+		if ancestralProcess.PPid == currentPPid {
+			break
+		}
+		currentPPid = ancestralProcess.PPid
+	}
+	return ancestralProcess, err
 }
 
 func EnvVarExists(name string) bool {

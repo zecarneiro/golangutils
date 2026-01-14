@@ -4,55 +4,59 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"golangutils/entity"
-	"golangutils/enum"
+	"golangutils/entities"
+	"golangutils/enums"
 	"os"
 	"os/exec"
 	"strings"
 )
 
 type ConsoleUtils struct {
-	logger *LoggerUtils
-	system *SystemUtils
+	loggerUtils *LoggerUtils
+	systemUtils *SystemUtils
+	shellUtils  *ShellUtils
 }
 
 func NewConsoleUtilsDefault() *ConsoleUtils {
-	logger := NewLoggerUtils()
-	return &ConsoleUtils{logger: logger, system: NewSystemUtils(logger)}
+	loggerUtils := NewLoggerUtils()
+	return &ConsoleUtils{
+		loggerUtils: loggerUtils,
+		systemUtils: NewSystemUtils(loggerUtils),
+		shellUtils:  NewShellUtilsDefault(),
+	}
 }
 
-func NewConsoleUtils(logger *LoggerUtils, system *SystemUtils) *ConsoleUtils {
-	return &ConsoleUtils{logger: logger, system: system}
+func NewConsoleUtils(loggerUtils *LoggerUtils) *ConsoleUtils {
+	return &ConsoleUtils{loggerUtils: loggerUtils, systemUtils: NewSystemUtils(loggerUtils)}
 }
 
-func (c *ConsoleUtils) fillCommand(command *entity.Command) {
+func (c *ConsoleUtils) fillCommand(command *entities.Command) {
 	currentDir, _ := GetCurrentDir()
 	command.EnvVars = Ternary(len(command.EnvVars) > 0, command.EnvVars, os.Environ())
 	command.Cwd = Ternary(command.Cwd == ".", currentDir, command.Cwd)
 }
 
-func (c *ConsoleUtils) printCommand(command entity.Command) {
+func (c *ConsoleUtils) printCommand(command entities.Command) {
 	if command.Verbose {
-		c.logger.Prompt(fmt.Sprintf("%s %s", command.Cmd, strings.Join(command.Args, " ")))
+		c.loggerUtils.Prompt(fmt.Sprintf("%s %s", command.Cmd, strings.Join(command.Args, " ")))
 	}
 }
 
-func (c *ConsoleUtils) detectShell(command entity.Command) (entity.Command, error) {
-	platform := c.system.Platform()
-	shellUtils := NewShellUtils()
+func (c *ConsoleUtils) detectShell(command entities.Command) (entities.Command, error) {
+	platform := c.systemUtils.Platform()
 	switch platform {
 	// ───── Linux + macOS → bash or sh ─────
-	case enum.DARWIN, enum.LINUX, enum.UNIX:
-		cmd := shellUtils.BuildBashCmd(command.Cmd, command.Args)
+	case enums.DARWIN, enums.LINUX, enums.UNIX:
+		cmd := c.shellUtils.BuildBashCmd(command.Cmd, command.Args)
 		command.Cmd = cmd.Cmd
 		command.Args = cmd.Args
 		return command, nil
 	// ───── Windows → PowerShell or CMD ─────
-	case enum.WINDOWS:
+	case enums.WINDOWS:
 		// Prefer PowerShell if available
-		cmd := shellUtils.BuildPowershellCmd(command.Cmd, command.Args)
+		cmd := c.shellUtils.BuildPowershellCmd(command.Cmd, command.Args)
 		if _, err := Which(cmd.Cmd); err != nil {
-			cmd = shellUtils.BuildPromptCmd(command.Cmd, command.Args)
+			cmd = c.shellUtils.BuildPromptCmd(command.Cmd, command.Args)
 		}
 		command.Cmd = cmd.Cmd
 		command.Args = cmd.Args
@@ -61,7 +65,7 @@ func (c *ConsoleUtils) detectShell(command entity.Command) (entity.Command, erro
 	return command, errors.New(GetUnsupportedPlatformMsg())
 }
 
-func (c *ConsoleUtils) ExecRealTime(command entity.Command) error {
+func (c *ConsoleUtils) ExecRealTime(command entities.Command) error {
 	c.fillCommand(&command)
 	if command.UseShell {
 		cmd, err := c.detectShell(command)
@@ -80,7 +84,7 @@ func (c *ConsoleUtils) ExecRealTime(command entity.Command) error {
 	return cmdResult.Run()
 }
 
-func (c *ConsoleUtils) Exec(command entity.Command) (string, error) {
+func (c *ConsoleUtils) Exec(command entities.Command) (string, error) {
 	c.printCommand(command)
 	c.fillCommand(&command)
 	if command.UseShell {
@@ -101,17 +105,17 @@ func (c *ConsoleUtils) Exec(command entity.Command) (string, error) {
 }
 
 func (c *ConsoleUtils) WaitForAnyKeyPressed(message string) {
-	c.logger.EnableKeepLine()
-	c.logger.Log(message)
+	c.loggerUtils.EnableKeepLine()
+	c.loggerUtils.Log(message)
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
 func (c *ConsoleUtils) Clear() {
-	command := entity.Command{}
-	if c.system.IsWindows() {
+	command := entities.Command{}
+	if c.systemUtils.IsWindows() {
 		command.Cmd = "cmd"
 		command.Args = []string{"/c", "cls"}
-	} else if c.system.IsLinux() {
+	} else if c.systemUtils.IsLinux() {
 		command.Cmd = "clear"
 	}
 	cmd := exec.Command(command.Cmd, command.Args...)
@@ -120,27 +124,27 @@ func (c *ConsoleUtils) Clear() {
 }
 
 func (c *ConsoleUtils) Chmod777(file string) {
-	fileInfo := entity.FileInfo{}
-	if c.system.IsWindows() {
+	fileInfo := entities.FileInfo{}
+	if c.systemUtils.IsWindows() {
 		if IsDir(file) {
 			info, err := ReadDirRecursive(file)
 			if err != nil {
-				c.logger.Error(err.Error())
-				fileInfo = entity.FileInfo{}
+				c.loggerUtils.Error(err.Error())
+				fileInfo = entities.FileInfo{}
 			} else {
 				fileInfo = info
 			}
 		} else if IsFile(file) {
-			fileInfo = entity.FileInfo{Files: []string{file}}
+			fileInfo = entities.FileInfo{Files: []string{file}}
 		}
-	} else if c.system.IsLinux() {
-		fileInfo = entity.FileInfo{Files: []string{file}}
+	} else if c.systemUtils.IsLinux() {
+		fileInfo = entities.FileInfo{Files: []string{file}}
 	}
 	if len(fileInfo.Files) > 0 {
-		c.logger.Info("Set full permission for '" + file + "'")
+		c.loggerUtils.Info("Set full permission for '" + file + "'")
 	}
-	var command entity.Command
-	if c.system.IsWindows() {
+	var command entities.Command
+	if c.systemUtils.IsWindows() {
 		for _, data := range fileInfo.Files {
 			command.UseShell = true
 			command.Cmd = "Unblock-File"
@@ -153,7 +157,7 @@ func (c *ConsoleUtils) Chmod777(file string) {
 			command.Args = []string{"-Path", fmt.Sprintf(`"%s"`, &data)}
 			c.ExecRealTime(command)
 		}
-	} else if c.system.IsLinux() {
+	} else if c.systemUtils.IsLinux() {
 		for _, data := range fileInfo.Directories {
 			command.UseShell = true
 			command.Cmd = "chmod"
@@ -161,7 +165,7 @@ func (c *ConsoleUtils) Chmod777(file string) {
 			c.ExecRealTime(command)
 		}
 	} else {
-		c.logger.Error(GetNotImplementedYetMsg())
+		c.loggerUtils.Error(GetNotImplementedYetMsg())
 	}
 }
 
@@ -174,8 +178,10 @@ func Confirm(message string, isNoDefault bool) bool {
 	var response string
 	fmt.Scanln(&response)
 	response = strings.Trim(response, " ")
-	if len(response) == 0 || response == "Y" || response == "y" {
+	if response == "Y" || response == "y" {
 		return true
+	} else if len(response) == 0 {
+		return Ternary(isNoDefault, false, true)
 	}
 	return false
 }
@@ -232,13 +238,13 @@ func UnsetEnv(key string) {
 	os.Unsetenv(key)
 }
 
-func SetEnvBulk(envs []entity.EnvData) {
+func SetEnvBulk(envs []entities.EnvData) {
 	for _, data := range envs {
 		SetEnv(data.Key, data.Value)
 	}
 }
 
-func UnsetEnvBulk(envs []entity.EnvData) {
+func UnsetEnvBulk(envs []entities.EnvData) {
 	for _, data := range envs {
 		UnsetEnv(data.Key)
 	}

@@ -1,4 +1,4 @@
-package entity
+package entities
 
 type Command struct {
 	Cmd              string
