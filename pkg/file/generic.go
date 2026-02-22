@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"golangutils/pkg/enums"
 	"golangutils/pkg/str"
 )
 
@@ -44,20 +45,20 @@ func Dirname(path string) string {
 	return filepath.Dir(path)
 }
 
-func Type(fileName string) FileType {
-	var typeFile FileType
+func Type(fileName string) enums.FileType {
+	var typeFile enums.FileType
 	file, err := os.Open(ResolvePath(fileName))
 	if err != nil {
-		return GetFileTypeFromValue(-1)
+		return enums.GetFileTypeFromValue(-1)
 	}
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return GetFileTypeFromValue(-1)
+		return enums.GetFileTypeFromValue(-1)
 	}
 	if fileInfo.IsDir() {
-		typeFile = GetFileTypeFromValue(Directory.Int())
+		typeFile = enums.GetFileTypeFromValue(enums.Directory.Int())
 	} else {
-		typeFile = GetFileTypeFromValue(File.Int())
+		typeFile = enums.GetFileTypeFromValue(enums.File.Int())
 	}
 	defer file.Close()
 	return typeFile

@@ -14,6 +14,7 @@ import (
 
 	"golangutils/pkg/conv"
 	"golangutils/pkg/logger"
+	"golangutils/pkg/str"
 )
 
 // ProgressWriter ajuda a calcular e exibir a percentagem
@@ -56,7 +57,7 @@ func (d *downloader) resolveFilepath() (string, error) {
 	filename := path.Base(parsed.Path)
 
 	// Caso a URL não tenha um nome de ficheiro válido
-	if filename == "." || filename == "/" || filename == "" || filename == ".." {
+	if filename == "." || filename == "/" || str.IsEmpty(filename) || filename == ".." {
 		filename = "downloaded_file"
 	}
 

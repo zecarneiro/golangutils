@@ -1,40 +1,35 @@
 package platform
 
 import (
-	"fmt"
+	"golangutils/pkg/enums"
 	"runtime"
 	"slices"
-	"strings"
 )
 
-func GetPlatform() PlatformType {
+func GetPlatform() enums.PlatformType {
 	if platformType == nil {
-		val := GetPlatformTypeFromValue(runtime.GOOS)
+		val := enums.GetPlatformTypeFromValue(runtime.GOOS)
 		platformType = &val
 	}
 	return *platformType
 }
 
 func IsWindows() bool {
-	return GetPlatform() == Windows
+	return GetPlatform() == enums.Windows
 }
 
 func IsLinux() bool {
-	return GetPlatform() == Linux
+	return GetPlatform() == enums.Linux
 }
 
 func IsDarwin() bool {
-	return GetPlatform() == Darwin
+	return GetPlatform() == enums.Darwin
 }
 
 func IsUnix() bool {
-	return GetPlatform() == Unix
+	return GetPlatform() == enums.Unix
 }
 
-func IsPlatform(platforms []PlatformType) bool {
+func IsPlatform(platforms []enums.PlatformType) bool {
 	return slices.Contains(platforms, GetPlatform())
-}
-
-func GetUnknowOS() string {
-	return fmt.Sprintf("Unknown OS [%s]", strings.ToLower(runtime.GOOS))
 }

@@ -11,6 +11,7 @@ import (
 	"golangutils/pkg/logic"
 	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
+	"golangutils/pkg/str"
 )
 
 func Confirm(message string, isNoDefault bool) bool {
@@ -56,7 +57,7 @@ func Pause(message string) {
 }
 
 func Which(cmd string) (string, error) {
-	if cmd == "" {
+	if str.IsEmpty(cmd) {
 		return "", nil
 	}
 	path, err := exec.LookPath(cmd)

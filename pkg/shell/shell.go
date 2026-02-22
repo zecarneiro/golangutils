@@ -9,18 +9,19 @@ import (
 
 	"golangutils/pkg/common"
 	"golangutils/pkg/console"
+	"golangutils/pkg/enums"
 	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
 	"golangutils/pkg/system"
 )
 
-func GetCurrentShell() ShellType {
+func GetCurrentShell() enums.ShellType {
 	// isWindows := runtime.GOOS == "windows"
 	ppid := os.Getppid()
 
 	// 1) Parent process (best-effort)
 	if parent, err := system.GetParentProcessInfo(ppid); err == nil {
-		shell := GetShellTypeFromValue(parent.Name)
+		shell := enums.GetShellTypeFromValue(parent.Name)
 		if shell.IsValid() {
 			return shell
 		}
@@ -34,19 +35,19 @@ func GetCurrentShell() ShellType {
 		}
 		// 1) PowerShell
 		if _, ok := os.LookupEnv("PSExecutionPolicyPreference"); ok {
-			return PowerShell
+			return enums.PowerShell
 		}
 		if _, ok := os.LookupEnv("PSModulePath"); ok {
-			return PowerShell
+			return enums.PowerShell
 		}
 		// 2) CMD
 		if comspec, ok := os.LookupEnv("ComSpec"); ok && strings.HasSuffix(strings.ToLower(comspec), "cmd.exe") {
-			return Cmd
+			return enums.Cmd
 		}
 
 	} else {
 		if s, ok := os.LookupEnv("SHELL"); ok {
-			shell := GetShellTypeFromValue(filepath.Base(s))
+			shell := enums.GetShellTypeFromValue(filepath.Base(s))
 			if shell.IsValid() {
 				return shell
 			}
@@ -55,7 +56,7 @@ func GetCurrentShell() ShellType {
 		// Linux fallback: /proc/<ppid>/comm
 		comm := fmt.Sprintf("/proc/%d/comm", ppid)
 		if data, err := os.ReadFile(comm); err == nil {
-			shell := GetShellTypeFromValue(strings.TrimSpace(string(data)))
+			shell := enums.GetShellTypeFromValue(strings.TrimSpace(string(data)))
 			if shell.IsValid() {
 				return shell
 			}
@@ -65,8 +66,8 @@ func GetCurrentShell() ShellType {
 	return common.Unknown
 }
 
-func GetAncestralShell(currentPPid int) ShellType {
-	var shellList []ShellType = []ShellType{}
+func GetAncestralShell(currentPPid int) enums.ShellType {
+	var shellList []enums.ShellType = []enums.ShellType{}
 	var ancestralProcess models.ParentProcessInfo
 	for {
 		if currentPPid <= 4 {
@@ -77,7 +78,7 @@ func GetAncestralShell(currentPPid int) ShellType {
 			break
 		}
 		ancestralProcess = *p
-		shell := GetShellTypeFromValue(ancestralProcess.Name)
+		shell := enums.GetShellTypeFromValue(ancestralProcess.Name)
 		if shell.IsValid() {
 			shellList = append(shellList, shell)
 		}
@@ -94,38 +95,42 @@ func GetAncestralShell(currentPPid int) ShellType {
 }
 
 func IsBash() bool {
-	return GetCurrentShell().Equals(Bash)
+	return GetCurrentShell().Equals(enums.Bash)
 }
 
 func IsZsh() bool {
-	return GetCurrentShell().Equals(Zsh)
+	return GetCurrentShell().Equals(enums.Zsh)
+}
+
+func IsKsh() bool {
+	return GetCurrentShell().Equals(enums.Ksh)
 }
 
 func IsFish() bool {
-	return GetCurrentShell().Equals(Fish)
+	return GetCurrentShell().Equals(enums.Fish)
 }
 
 func IsCmd() bool {
-	return GetCurrentShell().Equals(Cmd)
+	return GetCurrentShell().Equals(enums.Cmd)
 }
 
 func IsPowerShell() bool {
-	return GetCurrentShell().Equals(PowerShell)
+	return GetCurrentShell().Equals(enums.PowerShell)
 }
 
-func IsShell(shells []ShellType) bool {
+func IsShell(shells []enums.ShellType) bool {
 	return slices.Contains(shells, GetCurrentShell())
 }
 
-func BuildBashCmd(cmd string, args []string) models.Command {
-	command := models.Command{
-		Cmd:  "sh",
-		Args: append([]string{"-c", cmd}, args...),
+func BuildOthersCmd(cmd string, args []string, isInteractive bool) models.Command {
+	if IsFish() {
+		return buildFishCmd(cmd, args, isInteractive)
+	} else if IsKsh() {
+		return buildKshCmd(cmd, args, isInteractive)
+	} else if IsZsh() {
+		return buildZshCmd(cmd, args, isInteractive)
 	}
-	if _, err := console.Which("bash"); err == nil {
-		command.Cmd = "bash"
-	}
-	return command
+	return buildBashCmd(cmd, args, isInteractive)
 }
 
 func BuildPowershellCmd(cmd string, args []string) models.Command {

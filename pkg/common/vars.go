@@ -1,3 +1,3 @@
 package common
 
-var NotImplementedYetMSG = "Not impplemented yet!"
+const NotImplementedYetMSG = "Not impplemented yet!"

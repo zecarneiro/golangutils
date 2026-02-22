@@ -1,4 +1,4 @@
-package common
+package enums
 
 type ColorType string
 

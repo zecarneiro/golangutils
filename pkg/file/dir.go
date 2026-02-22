@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"golangutils/pkg/enums"
 	"golangutils/pkg/models"
 	"golangutils/pkg/slice"
 )
@@ -47,7 +48,7 @@ func ReadDirRecursive(dir string) (models.FileInfo, error) {
 			}
 			if path != "." && path != ".." {
 				info := Type(path)
-				if info == Directory {
+				if info == enums.Directory {
 					files.Directories = append(files.Directories, path)
 				} else {
 					files.Files = append(files.Files, path)
@@ -82,7 +83,7 @@ func IsDirEmpty(name string) (bool, error) {
 }
 
 func IsDir(file string) bool {
-	return FileExist(file) && Type(file) == Directory
+	return FileExist(file) && Type(file) == enums.Directory
 }
 
 func CopyDir(src string, dst string) error {
@@ -120,14 +121,6 @@ func CopyDir(src string, dst string) error {
 	return nil
 }
 
-func GetExecutableDir() (string, error) {
-	execPath, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	return Dirname(execPath), nil
-}
-
 func CreateDirectory(dir string, recursive bool) error {
 	dir = ResolvePath(dir)
 	var err error
@@ -152,4 +145,14 @@ func DeleteDirectory(directory string) error {
 		return err
 	}
 	return nil
+}
+
+func ClearDirectory(directory string) error {
+	directory = ResolvePath(directory)
+	if IsDir(directory) {
+		if err := DeleteDirectory(directory); err != nil {
+			return err
+		}
+	}
+	return CreateDirectory(directory, false)
 }

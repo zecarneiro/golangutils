@@ -9,6 +9,7 @@ import (
 
 	"golangutils/pkg/common"
 	"golangutils/pkg/console"
+	"golangutils/pkg/enums"
 	"golangutils/pkg/file"
 	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
@@ -17,13 +18,13 @@ import (
 func OSName() string {
 	osName := common.GetUnknown("%s OS NAME")
 	switch platform.GetPlatform() {
-	case platform.Windows:
+	case enums.Windows:
 		cmd := exec.Command("powershell", "-Command", "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption")
 		output, err := cmd.Output()
 		if err == nil && len(output) > 0 {
 			osName = strings.TrimSpace(string(output))
 		}
-	case platform.Linux:
+	case enums.Linux:
 		alreadySet := false
 		file.ReadFileLineByLine("/etc/os-release", func(lineData string, err error) {
 			if strings.HasPrefix(lineData, "PRETTY_NAME=") && !alreadySet {
@@ -31,28 +32,47 @@ func OSName() string {
 				alreadySet = true
 			}
 		})
-	case platform.Darwin:
+	case enums.Darwin:
 		out, _ := exec.Command("sw_vers", "-productName").Output()
 		ver, _ := exec.Command("sw_vers", "-productVersion").Output()
 		osName = fmt.Sprintf("%s %s", strings.TrimSpace(string(out)), strings.TrimSpace(string(ver)))
-	case platform.FreeBSD, platform.OpenBSD:
+	case enums.FreeBSD, enums.OpenBSD:
 		out, _ := exec.Command("uname", "-sr").Output()
 		osName = strings.TrimSpace(string(out))
 	}
 	return osName
 }
 
-func GetOsType() OSType {
-	return GetOSTypeFromValue(OSName())
-}
-
 func Reboot() error {
 	var cmd *exec.Cmd
-	if console.Confirm("Will be restart PC. Continue", true) {
+	if console.Confirm("Will be restart the PC. Continue?", true) {
+		shutdownCmd, err := console.Which("shutdown")
+		if err != nil {
+			return err
+		}
 		if platform.IsWindows() {
-			cmd = exec.Command("shutdown", "/r", "/t", "0", "/f")
+			cmd = exec.Command(shutdownCmd, "/r", "/t", "0", "/f")
 		} else if platform.IsLinux() {
-			cmd = exec.Command("sudo", "shutdown", "-r", "now")
+			cmd = exec.Command("sudo", shutdownCmd, "-r", "now")
+		} else if platform.IsDarwin() {
+			return errors.New(common.NotImplementedYetMSG)
+		}
+		return cmd.Run()
+	}
+	return nil
+}
+
+func Shutdown() error {
+	var cmd *exec.Cmd
+	if console.Confirm("Will be shutdown the PC. Continue?", true) {
+		shutdownCmd, err := console.Which("shutdown")
+		if err != nil {
+			return err
+		}
+		if platform.IsWindows() {
+			cmd = exec.Command(shutdownCmd, "/s", "/t", "0")
+		} else if platform.IsLinux() {
+			cmd = exec.Command("sudo", shutdownCmd, "-h", "now")
 		} else if platform.IsDarwin() {
 			return errors.New(common.NotImplementedYetMSG)
 		}
@@ -64,7 +84,7 @@ func Reboot() error {
 func GetParentProcessInfo(ppid int) (*models.ParentProcessInfo, error) {
 	var parentInfo *models.ParentProcessInfo
 	switch platform.GetPlatform() {
-	case platform.Linux, platform.Darwin, platform.Unix:
+	case enums.Linux, enums.Darwin, enums.Unix:
 		out, err := exec.Command("ps", "-p", strconv.Itoa(ppid), "-o", "ppid=,comm=").Output()
 		if err != nil {
 			return nil, err
@@ -80,7 +100,7 @@ func GetParentProcessInfo(ppid int) (*models.ParentProcessInfo, error) {
 				}, nil
 			}
 		}
-	case platform.Windows:
+	case enums.Windows:
 		out, err := exec.Command(
 			"powershell",
 			"-Command",

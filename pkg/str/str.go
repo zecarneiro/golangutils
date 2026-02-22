@@ -48,3 +48,8 @@ func DeleteLastChar(original string) string {
 	}
 	return ""
 }
+
+func IsEmpty(data string) bool {
+	data = strings.Trim(data, " ")
+	return len(data) == 0 || data == " "
+}

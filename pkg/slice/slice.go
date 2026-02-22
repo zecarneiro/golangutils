@@ -2,6 +2,7 @@ package slice
 
 import (
 	"cmp"
+	"golangutils/pkg/conv"
 	"slices"
 	"strings"
 )
@@ -22,6 +23,18 @@ func ArrayToStringBySep(arr []string, sep string) string {
 
 func ArrayToString(arr []string) string {
 	return ArrayToStringBySep(arr, " ")
+}
+
+func ObjArrayToStringBySep[T any](arr []T, sep string) string {
+	dataArr := []string{}
+	for _, data := range arr {
+		dataArr = append(dataArr, conv.ToString(data))
+	}
+	return ArrayToStringBySep(dataArr, sep)
+}
+
+func ObjArrayToString[T any](arr []T) string {
+	return ObjArrayToStringBySep(arr, " ")
 }
 
 func RemoveDuplicate[T cmp.Ordered](sliceList []T) []T {
@@ -48,4 +61,22 @@ func MapToKeys[K comparable, V any](input map[K]V) []K {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func MapExistKey[K comparable, V any](input map[K]V, searchKey K) bool {
+	_, exists := input[searchKey]
+	return exists
+}
+
+func MapExistValue[K comparable, V comparable](input map[K]V, searchValue V) bool {
+	for _, v := range input {
+		if v == searchValue {
+			return true
+		}
+	}
+	return false
+}
+
+func IsMapEmpty[K comparable, V any](input map[K]V) bool {
+	return len(input) == 0
 }

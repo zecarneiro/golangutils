@@ -13,6 +13,7 @@ import (
 )
 
 func ExecRealTime(command models.Command) error {
+	printCommand(command)
 	fillCommand(&command)
 	if command.UseShell {
 		cmd, err := detectShell(command)
@@ -20,10 +21,15 @@ func ExecRealTime(command models.Command) error {
 			return err
 		}
 		command = cmd
+	} else {
+		cmd, err := buildNonShellCmd(command)
+		if err != nil {
+			return err
+		}
+		command = cmd
 	}
-	printCommand(command)
 	cmdResult := exec.Command(command.Cmd, command.Args...)
-	cmdResult.Env = command.EnvVars
+	cmdResult.Env = getEnv(command)
 	cmdResult.Dir = command.Cwd
 	cmdResult.Stdout = os.Stdout
 	cmdResult.Stderr = os.Stderr
@@ -40,9 +46,15 @@ func Exec(command models.Command) (string, error) {
 			return "", err
 		}
 		command = cmd
+	} else {
+		cmd, err := buildNonShellCmd(command)
+		if err != nil {
+			return "", err
+		}
+		command = cmd
 	}
 	cmdResult := exec.Command(command.Cmd, command.Args...)
-	cmdResult.Env = command.EnvVars
+	cmdResult.Env = getEnv(command)
 	cmdResult.Dir = command.Cwd
 	output, err := cmdResult.CombinedOutput()
 	if len(output) > 0 {
@@ -74,13 +86,13 @@ func Chmod777(filepath string) error {
 		for _, data := range fileInfo.Files {
 			command.UseShell = true
 			command.Cmd = "Unblock-File"
-			command.Args = []string{"-Path", fmt.Sprintf(`"%s"`, &data)}
+			command.Args = []string{"-Path", fmt.Sprintf("\"%s\"", data)}
 			ExecRealTime(command)
 		}
 		for _, data := range fileInfo.Directories {
 			command.UseShell = true
 			command.Cmd = "Unblock-File"
-			command.Args = []string{"-Path", fmt.Sprintf(`"%s"`, &data)}
+			command.Args = []string{"-Path", fmt.Sprintf("\"%s\"", data)}
 			ExecRealTime(command)
 		}
 	} else if platform.IsLinux() {
@@ -96,6 +108,23 @@ func Chmod777(filepath string) error {
 				return err
 			}
 		}
+		return nil
 	}
 	return fmt.Errorf(common.NotImplementedYetMSG)
+}
+
+func GetExecutable() (string, error) {
+	execPath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return execPath, nil
+}
+
+func GetExecutableDir() (string, error) {
+	execPath, err := GetExecutable()
+	if err != nil {
+		return "", err
+	}
+	return file.Dirname(execPath), nil
 }

@@ -1,4 +1,4 @@
-package file
+package enums
 
 import "golangutils/pkg/common"
 

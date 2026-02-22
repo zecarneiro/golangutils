@@ -1,17 +1,13 @@
 package logger
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"log"
 
-	"golangutils/pkg/common"
-	"golangutils/pkg/conv"
+	"golangutils/pkg/enums"
 )
 
 func FormatDataWithColor(data string, color string) string {
-	return fmt.Sprintf("%s%s%s", color, data, common.Reset.String())
+	return fmt.Sprintf("%s%s%s", color, data, enums.Reset.String())
 }
 
 func Log(data any) {
@@ -29,47 +25,42 @@ func Debug(data any) {
 func Warn(data any) {
 	logToFile(data, "warn")
 	WithKeepLine(true)
-	print(fmt.Sprintf("[%s] ", FormatDataWithColor("WARN", common.Yellow.String())))
+	print(fmt.Sprintf("[%s] ", FormatDataWithColor("WARN", enums.Yellow.String())))
 	print(data)
 }
 
-func Error(data any) {
-	var dataStr string
-	if data == nil {
-		log.Fatal("Receive nil")
+func Error(data error) {
+	if data != nil {
+		dataStr := fmt.Sprintf("%v", data)
+		logToFile(dataStr, "error")
+		WithKeepLine(true)
+		print(fmt.Sprintf("[%s] ", FormatDataWithColor("ERROR", enums.Red.String())))
+		print(dataStr)
 	}
-	switch v := data.(type) {
-	case error:
-		dataStr = v.Error()
-	case string:
-		dataStr = v
-	default:
-		dataStr = fmt.Sprintf("%v", v)
-	}
-	logToFile(dataStr, "error")
-	WithKeepLine(true)
-	print(fmt.Sprintf("[%s] ", FormatDataWithColor("ERROR", common.Red.String())))
-	print(dataStr)
+}
+
+func ErrorStr(data string) {
+	Error(fmt.Errorf("%s", data))
 }
 
 func Info(data any) {
 	logToFile(data, "info")
 	WithKeepLine(true)
-	print(fmt.Sprintf("[%s] ", FormatDataWithColor("INFO", common.Blue.String())))
+	print(fmt.Sprintf("[%s] ", FormatDataWithColor("INFO", enums.Blue.String())))
 	print(data)
 }
 
 func Ok(data any) {
 	logToFile(data, "ok")
 	WithKeepLine(true)
-	print(fmt.Sprintf("[%s] ", FormatDataWithColor("OK", common.Green.String())))
+	print(fmt.Sprintf("[%s] ", FormatDataWithColor("OK", enums.Green.String())))
 	print(data)
 }
 
 func Prompt(data string) {
 	logToFile(data, "prompt")
 	WithKeepLine(true)
-	print(fmt.Sprintf("%s ", FormatDataWithColor(">>>", common.Gray.String())))
+	print(fmt.Sprintf("%s ", FormatDataWithColor(">>>", enums.Gray.String())))
 	print(data)
 }
 
@@ -137,16 +128,5 @@ func Help(appName string, description string, usages []string, args []string, ot
 		for _, other := range others {
 			print("\t" + other)
 		}
-	}
-}
-
-func Json(data any) {
-	dataStr := conv.ToString(data)
-	var formatado bytes.Buffer
-	err := json.Indent(&formatado, []byte(dataStr), "", "  ")
-	if err == nil {
-		Error(err)
-	} else {
-		print(formatado.String())
 	}
 }

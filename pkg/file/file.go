@@ -2,13 +2,17 @@ package file
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"golangutils/pkg/logic"
+	"golangutils/pkg/enums"
 	"golangutils/pkg/obj"
+	"golangutils/pkg/str"
 
 	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding/ianaindex"
@@ -38,15 +42,11 @@ func ReadFileLineByLine(filePath string, callback func(string, error)) {
 	}
 }
 
-func WriteFile(file string, data string, isAppend bool, isCreateDir bool) error {
-	return WriteFileWithEncoding(file, data, isAppend, isCreateDir, "utf-8")
-}
-
-func WriteFileWithEncoding(file string, data string, isAppend bool, isCreateDir bool, encodingName string) error {
-	utfName := "utf-8"
+func writeFile(file string, data string, isAppend bool, isCreateDir bool, encodingName string, isJson bool) error {
 	file = ResolvePath(file)
-	encodingName = logic.Ternary(len(encodingName) > 0, encodingName, utfName)
-	encodingName = logic.Ternary(encodingName == "UTF-8", utfName, encodingName)
+	if str.IsEmpty(encodingName) || encodingName == "UTF-8" {
+		encodingName = utf8Encoding
+	}
 	if isCreateDir {
 		dirname := Dirname(file)
 		err := CreateDirectory(dirname, true)
@@ -65,7 +65,7 @@ func WriteFileWithEncoding(file string, data string, isAppend bool, isCreateDir 
 		fileStream, err = os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0o644)
 	} else {
 		fileStream, err = os.Create(file)
-		if encodingName == utfName {
+		if !isJson && encodingName == utf8Encoding {
 			fileStream.Write([]byte{0xEF, 0xBB, 0xBF})
 		}
 	}
@@ -74,39 +74,67 @@ func WriteFileWithEncoding(file string, data string, isAppend bool, isCreateDir 
 	}
 	defer fileStream.Close()
 
-	writer := transform.NewWriter(fileStream, enc.NewEncoder())
-	if _, err := fmt.Fprintln(writer, data); err != nil {
-		return err
+	var writer io.Writer = fileStream
+	if encodingName != utf8Encoding {
+		tWriter := transform.NewWriter(fileStream, enc.NewEncoder())
+		defer tWriter.Close()
+		writer = tWriter
 	}
-	if err := writer.Close(); err != nil {
+	if _, err := fmt.Fprintln(writer, data); err != nil {
 		return err
 	}
 	return nil
 }
 
+func WriteFile(file string, data string, isAppend bool, isCreateDir bool) error {
+	return WriteFileWithEncoding(file, data, isAppend, isCreateDir, utf8Encoding)
+}
+
+func WriteFileWithEncoding(file string, data string, isAppend bool, isCreateDir bool, encodingName string) error {
+	return writeFile(file, data, isAppend, isCreateDir, encodingName, false)
+}
+
 func DeleteFile(file string) error {
 	file = ResolvePath(file)
-	err := os.Remove(file)
-	if err != nil {
-		return err
+	if IsFile(file) {
+		if err := os.Remove(file); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func IsFile(file string) bool {
-	return FileExist(file) && Type(file) == File
+	return FileExist(file) && Type(file) == enums.File
 }
 
 func IsSymbolicLink(file string) bool {
-	return FileExist(file) && Type(file) == SymbolicLink
+	return FileExist(file) && Type(file) == enums.SymbolicLink
 }
 
-func ReadJsonFile(jsonFile string, target any) error {
-	data, err := ReadFile(ResolvePath(jsonFile))
+func ReadJsonFile[T any](jsonFile string) (T, error) {
+	var data T
+	jsonFile = ResolvePath(jsonFile)
+	file, err := os.Open(jsonFile)
 	if err != nil {
-		return err
+		return data, fmt.Errorf("failed to open the file: %w", err)
 	}
-	return obj.StringToObject(data, &target)
+	defer file.Close()
+	reader := bufio.NewReader(file)
+
+	// "Spy" the first 3 bytes (size of the BOM UTF-8)
+	bom, err := reader.Peek(3)
+	if err == nil && bytes.Equal(bom, []byte("\xef\xbb\xbf")) {
+		// If the BOM exists, we will delete, by move the reader in 3 bytes
+		reader.Discard(3)
+	}
+	// Now we put the reader to the decoder
+	decoder := json.NewDecoder(reader)
+	if err := decoder.Decode(&data); err != nil {
+		return data, fmt.Errorf("failed on decode json: %w", err)
+	}
+
+	return data, nil
 }
 
 func WriteJsonFile(jsonFile string, data any, escapeHtml bool) error {
@@ -123,7 +151,7 @@ func WriteJsonFile(jsonFile string, data any, escapeHtml bool) error {
 			return err
 		}
 	}
-	return WriteFile(ResolvePath(jsonFile), dataStr, false, true)
+	return writeFile(ResolvePath(jsonFile), dataStr, false, true, utf8Encoding, true)
 }
 
 func CopyFile(src string, dst string) error {
@@ -177,7 +205,7 @@ func ReadFileInByte(filename string) ([]byte, error) {
 }
 
 func FileExtension(data string) string {
-	if data == "" || data == "." || data == ".." {
+	if str.IsEmpty(data) || data == "." || data == ".." {
 		return ""
 	}
 	data = ResolvePath(data)
@@ -190,6 +218,11 @@ func FileExtension(data string) string {
 		ext = ext[1:]
 	}
 	return ext
+}
+
+func FileName(data string) string {
+	basename := ResolvePath(Basename(data))
+	return strings.TrimSuffix(basename, filepath.Ext(basename))
 }
 
 func GetFileEncoding(filePath string) (string, error) {

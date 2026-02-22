@@ -1,18 +1,20 @@
-package platform
+package enums
 
 import (
+	"golangutils/pkg/common"
 	"strings"
 )
 
 type PlatformType string
 
 const (
-	Unix    PlatformType = "unix"
-	Darwin  PlatformType = "darwin"
-	Linux   PlatformType = "linux"
-	Windows PlatformType = "windows"
-	FreeBSD PlatformType = "freebsd"
-	OpenBSD PlatformType = "openbsd"
+	Unix            PlatformType = "unix"
+	Darwin          PlatformType = "darwin"
+	Linux           PlatformType = "linux"
+	Windows         PlatformType = "windows"
+	FreeBSD         PlatformType = "freebsd"
+	OpenBSD         PlatformType = "openbsd"
+	UnknownPlatform PlatformType = common.Unknown
 )
 
 func GetPlatformTypeFromValue(value string) PlatformType {
@@ -31,7 +33,7 @@ func GetPlatformTypeFromValue(value string) PlatformType {
 	case "netbsd", "dragonfly", "solaris":
 		return Unix
 	}
-	return ""
+	return UnknownPlatform
 }
 
 func (p PlatformType) IsValid() bool {
@@ -47,7 +49,7 @@ func (p PlatformType) String() string {
 	if p.IsValid() {
 		return string(p)
 	}
-	return ""
+	return UnknownPlatform.String()
 }
 
 func (p PlatformType) Equals(other PlatformType) bool {

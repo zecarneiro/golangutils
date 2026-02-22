@@ -1,18 +1,20 @@
-package shell
+package enums
 
 import (
+	"golangutils/pkg/common"
 	"strings"
 )
 
 type ShellType string
 
 const (
-	PowerShell ShellType = "pwsh"
-	Bash       ShellType = "bash"
-	Zsh        ShellType = "zsh"
-	Fish       ShellType = "fish"
-	Ksh        ShellType = "ksh"
-	Cmd        ShellType = "cmd"
+	PowerShell   ShellType = "pwsh"
+	Bash         ShellType = "bash"
+	Zsh          ShellType = "zsh"
+	Fish         ShellType = "fish"
+	Ksh          ShellType = "ksh"
+	Cmd          ShellType = "cmd"
+	UnknownShell ShellType = common.Unknown
 )
 
 func GetShellTypeFromValue(value string) ShellType {
@@ -31,7 +33,7 @@ func GetShellTypeFromValue(value string) ShellType {
 	case "cmd", "cmd.exe":
 		return Cmd
 	default:
-		return ""
+		return UnknownShell
 	}
 }
 
@@ -48,7 +50,7 @@ func (s ShellType) String() string {
 	if s.IsValid() {
 		return string(s)
 	}
-	return ""
+	return UnknownShell.String()
 }
 
 func (s ShellType) Equals(other ShellType) bool {
