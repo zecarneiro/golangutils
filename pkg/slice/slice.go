@@ -2,9 +2,10 @@ package slice
 
 import (
 	"cmp"
-	"golangutils/pkg/conv"
 	"slices"
 	"strings"
+
+	"golangutils/pkg/conv"
 )
 
 func FilterArray[T any](array []T, fun func(T) bool) []T {
@@ -79,4 +80,15 @@ func MapExistValue[K comparable, V comparable](input map[K]V, searchValue V) boo
 
 func IsMapEmpty[K comparable, V any](input map[K]V) bool {
 	return len(input) == 0
+}
+
+func ConcatMap[T comparable](map1, map2 map[T]interface{}) map[T]interface{} {
+	result := make(map[T]interface{})
+	for k, v := range map1 {
+		result[k] = v
+	}
+	for k, v := range map2 {
+		result[k] = v
+	}
+	return result
 }

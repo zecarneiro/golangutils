@@ -22,8 +22,13 @@ func ObjectToStringEscapeHtml(data any) (string, error) {
 	return buf.String(), nil
 }
 
-func StringToObject(data string, target any) error {
-	return json.Unmarshal([]byte(data), &target)
+func StringToObject[T any](data string) (T, error) {
+	var target T
+	err := json.Unmarshal([]byte(data), &target)
+	if err != nil {
+		return *new(T), err
+	}
+	return target, nil
 }
 
 func IsValidJSON(s string) bool {

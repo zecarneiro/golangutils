@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"golangutils/pkg/enums"
+	"golangutils/pkg/models"
 	"golangutils/pkg/obj"
 	"golangutils/pkg/str"
 
@@ -42,30 +43,31 @@ func ReadFileLineByLine(filePath string, callback func(string, error)) {
 	}
 }
 
-func writeFile(file string, data string, isAppend bool, isCreateDir bool, encodingName string, isJson bool) error {
-	file = ResolvePath(file)
-	if str.IsEmpty(encodingName) || encodingName == "UTF-8" {
-		encodingName = utf8Encoding
+func WriteFile(config models.FileWriterConfig) error {
+	utf8Encoding := "utf-8"
+	config.File = ResolvePath(config.File)
+	if str.IsEmpty(config.EncodingName) || config.EncodingName == "UTF-8" {
+		config.EncodingName = utf8Encoding
 	}
-	if isCreateDir {
-		dirname := Dirname(file)
+	if config.IsCreateDir {
+		dirname := Dirname(config.File)
 		err := CreateDirectory(dirname, true)
 		if err != nil {
 			return err
 		}
 	}
 	// 1. Obter o codificador baseado no nome fornecido
-	enc, err := ianaindex.MIME.Encoding(encodingName)
+	enc, err := ianaindex.MIME.Encoding(config.EncodingName)
 	if err != nil {
 		return fmt.Errorf("encoding inválido: %v", err)
 	}
 
 	var fileStream *os.File
-	if isAppend && FileExist(file) {
-		fileStream, err = os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0o644)
+	if config.IsAppend && FileExist(config.File) {
+		fileStream, err = os.OpenFile(config.File, os.O_APPEND|os.O_WRONLY, 0o644)
 	} else {
-		fileStream, err = os.Create(file)
-		if !isJson && encodingName == utf8Encoding {
+		fileStream, err = os.Create(config.File)
+		if config.WithUtf8BOM && config.EncodingName == utf8Encoding {
 			fileStream.Write([]byte{0xEF, 0xBB, 0xBF})
 		}
 	}
@@ -75,23 +77,15 @@ func writeFile(file string, data string, isAppend bool, isCreateDir bool, encodi
 	defer fileStream.Close()
 
 	var writer io.Writer = fileStream
-	if encodingName != utf8Encoding {
+	if config.EncodingName != utf8Encoding {
 		tWriter := transform.NewWriter(fileStream, enc.NewEncoder())
 		defer tWriter.Close()
 		writer = tWriter
 	}
-	if _, err := fmt.Fprintln(writer, data); err != nil {
+	if _, err := fmt.Fprintln(writer, config.Data); err != nil {
 		return err
 	}
 	return nil
-}
-
-func WriteFile(file string, data string, isAppend bool, isCreateDir bool) error {
-	return WriteFileWithEncoding(file, data, isAppend, isCreateDir, utf8Encoding)
-}
-
-func WriteFileWithEncoding(file string, data string, isAppend bool, isCreateDir bool, encodingName string) error {
-	return writeFile(file, data, isAppend, isCreateDir, encodingName, false)
 }
 
 func DeleteFile(file string) error {
@@ -151,7 +145,14 @@ func WriteJsonFile(jsonFile string, data any, escapeHtml bool) error {
 			return err
 		}
 	}
-	return writeFile(ResolvePath(jsonFile), dataStr, false, true, utf8Encoding, true)
+	fileConfig := models.FileWriterConfig{
+		File:        ResolvePath(jsonFile),
+		Data:        dataStr,
+		IsAppend:    false,
+		IsCreateDir: true,
+		WithUtf8BOM: false,
+	}
+	return WriteFile(fileConfig)
 }
 
 func CopyFile(src string, dst string) error {
