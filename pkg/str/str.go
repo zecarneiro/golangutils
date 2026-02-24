@@ -28,8 +28,8 @@ func GetSubstring(str string, start int, end int) string {
 	return newStr
 }
 
-func StringContains(original string, search string, isIgnoreCase bool) bool {
-	if isIgnoreCase {
+func Contains(original string, search string, caseInsensitive bool) bool {
+	if caseInsensitive {
 		return strings.Contains(strings.ToLower(original), strings.ToLower(search))
 	}
 	return strings.Contains(original, search)

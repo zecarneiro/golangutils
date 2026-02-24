@@ -18,6 +18,10 @@ func GetCurrentDir() (string, error) {
 	return os.Getwd()
 }
 
+func ReadDirWithFilter(dir string, match string) ([]string, error) {
+	return filepath.Glob(JoinPath(dir, "*.desktop"))
+}
+
 func ReadDir(dir string) (models.FileInfo, error) {
 	dir = ResolvePath(dir)
 	var filesData models.FileInfo
