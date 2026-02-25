@@ -16,11 +16,7 @@ func ExecRealTime(command models.Command) error {
 	printCommand(command)
 	fillCommand(&command)
 	if command.UseShell {
-		cmd, err := detectShell(command)
-		if err != nil {
-			return err
-		}
-		command = cmd
+		command = detectShell(command)
 	} else {
 		cmd, err := buildNonShellCmd(command)
 		if err != nil {
@@ -41,11 +37,7 @@ func Exec(command models.Command) (string, error) {
 	printCommand(command)
 	fillCommand(&command)
 	if command.UseShell {
-		cmd, err := detectShell(command)
-		if err != nil {
-			return "", err
-		}
-		command = cmd
+		command = detectShell(command)
 	} else {
 		cmd, err := buildNonShellCmd(command)
 		if err != nil {

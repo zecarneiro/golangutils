@@ -94,62 +94,142 @@ func GetAncestralShell(currentPPid int) enums.ShellType {
 	return shellList[sizeList-1]
 }
 
-func IsBash() bool {
-	return GetCurrentShell().Equals(enums.Bash)
-}
-
-func IsZsh() bool {
-	return GetCurrentShell().Equals(enums.Zsh)
-}
-
-func IsKsh() bool {
-	return GetCurrentShell().Equals(enums.Ksh)
-}
-
-func IsFish() bool {
-	return GetCurrentShell().Equals(enums.Fish)
-}
-
-func IsCmd() bool {
-	return GetCurrentShell().Equals(enums.Cmd)
-}
-
-func IsPowerShell() bool {
-	return GetCurrentShell().Equals(enums.PowerShell)
-}
-
 func IsShell(shells []enums.ShellType) bool {
 	return slices.Contains(shells, GetCurrentShell())
 }
 
-func BuildOthersCmd(cmd string, args []string, isInteractive bool) models.Command {
-	if IsFish() {
+/* ----------------------------- POWERSHELL AREA ---------------------------- */
+func IsPowerShell() bool {
+	return GetCurrentShell().Equals(enums.PowerShell)
+}
+
+func GetPowershellCmd() string {
+	cmd, err := console.Which("powershell.exe")
+	if err == nil && cmd != "" {
+		return cmd
+	}
+	cmd, err = console.Which("pwsh.exe")
+	if err == nil && cmd != "" {
+		return cmd
+	}
+	return ""
+}
+
+func IsPowershellInstalled() bool {
+	return GetPowershellCmd() != ""
+}
+
+/* -------------------------------- BASH AREA ------------------------------- */
+func IsBash() bool {
+	return GetCurrentShell().Equals(enums.Bash)
+}
+
+func GetBashCmd() string {
+	cmd, err := console.Which("bash")
+	if err == nil && cmd != "" {
+		return cmd
+	}
+	cmd, err = console.Which("sh")
+	if err == nil && cmd != "" {
+		return cmd
+	}
+	return ""
+}
+
+func IsBashInstalled() bool {
+	return GetBashCmd() != ""
+}
+
+/* -------------------------------- FISH AREA ------------------------------- */
+func IsFish() bool {
+	return GetCurrentShell().Equals(enums.Fish)
+}
+
+func GetFishCmd() string {
+	cmd, err := console.Which("fish")
+	if err == nil && cmd != "" {
+		return cmd
+	}
+	return ""
+}
+
+func IsFishInstalled() bool {
+	return GetFishCmd() != ""
+}
+
+/* -------------------------------- ZSH AREA -------------------------------- */
+func IsZsh() bool {
+	return GetCurrentShell().Equals(enums.Zsh)
+}
+
+func GetZshCmd() string {
+	cmd, err := console.Which("zsh")
+	if err == nil && cmd != "" {
+		return cmd
+	}
+	return ""
+}
+
+func IsZshInstalled() bool {
+	return GetZshCmd() != ""
+}
+
+/* -------------------------------- KSH AREA -------------------------------- */
+func IsKsh() bool {
+	return GetCurrentShell().Equals(enums.Ksh)
+}
+
+func GetKshCmd() string {
+	cmd, err := console.Which("ksh")
+	if err == nil && cmd != "" {
+		return cmd
+	}
+	return ""
+}
+
+func IsKshInstalled() bool {
+	return GetKshCmd() != ""
+}
+
+/* -------------------------------- CMD AREA -------------------------------- */
+func IsCmd() bool {
+	return GetCurrentShell().Equals(enums.Cmd)
+}
+
+func GetPromptCMDCmd() string {
+	cmd, err := console.Which("cmd.exe")
+	if err == nil && cmd != "" {
+		return cmd
+	}
+	return ""
+}
+
+func IsPromptCMDInstalled() bool {
+	return GetPromptCMDCmd() != ""
+}
+
+/* ---------------------------- BUILD OTHERS AREA --------------------------- */
+func BuildShellCmd(cmd string, args []string, isInteractive bool) models.Command {
+	return BuildShellCmdByShell(cmd, args, isInteractive, enums.UnknownShell)
+}
+
+func BuildShellCmdByShell(cmd string, args []string, isInteractive bool, shellType enums.ShellType) models.Command {
+	hasShellType := false
+	if shellType != enums.UnknownShell {
+		hasShellType = true
+	}
+	if (!hasShellType && IsPowerShell()) || shellType == enums.PowerShell {
+		return buildPowershellCmd(cmd, args)
+	} else if (!hasShellType && IsBash()) || shellType == enums.Bash {
+		return buildBashCmd(cmd, args, isInteractive)
+	} else if (!hasShellType && IsFish()) || shellType == enums.Fish {
 		return buildFishCmd(cmd, args, isInteractive)
-	} else if IsKsh() {
-		return buildKshCmd(cmd, args, isInteractive)
-	} else if IsZsh() {
+	} else if (!hasShellType && IsZsh()) || shellType == enums.Zsh {
 		return buildZshCmd(cmd, args, isInteractive)
+	} else if (!hasShellType && IsKsh()) || shellType == enums.Ksh {
+		return buildKshCmd(cmd, args, isInteractive)
+	} else if (!hasShellType && IsCmd()) || shellType == enums.Cmd {
+		return buildPromptCmd(cmd, args)
 	}
-	return buildBashCmd(cmd, args, isInteractive)
-}
-
-func BuildPowershellCmd(cmd string, args []string) models.Command {
-	command := models.Command{
-		Cmd:  "powershell.exe",
-		Args: append([]string{"-nologo", "-Command", cmd}, args...),
-	}
-	if _, err := console.Which("powershell.exe"); err != nil {
-		if _, err := console.Which("pwsh.exe"); err == nil {
-			command.Cmd = "pwsh.exe"
-		}
-	}
-	return command
-}
-
-func BuildPromptCmd(cmd string, args []string) models.Command {
-	command := models.Command{
-		Cmd:  "cmd.exe",
-		Args: append([]string{"/C", cmd}, args...),
-	}
-	return command
+	return buildDefault(cmd, args)
 }

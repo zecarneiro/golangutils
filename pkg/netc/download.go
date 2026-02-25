@@ -71,6 +71,7 @@ func Download(urlData string, output string) error {
 	}
 	filepath, err := downloader.resolveFilepath()
 	logger.Info("Downloading file: " + filepath)
+	logger.Info("From URL: " + urlData)
 	if err != nil {
 		return err
 	}

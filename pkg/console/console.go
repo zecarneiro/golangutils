@@ -47,13 +47,17 @@ func CountArgs() int {
 	return len(GetArgsList())
 }
 
-func Pause(message string) {
+func PauseWithMsg(message string) {
 	if len(message) == 0 {
 		message = "Press Enter to continue..."
 	}
 	fmt.Print(message)
 	reader := bufio.NewReader(os.Stdin)
 	reader.ReadString('\n') // waits for Enter
+}
+
+func Pause() {
+	PauseWithMsg("")
 }
 
 func Which(cmd string) (string, error) {

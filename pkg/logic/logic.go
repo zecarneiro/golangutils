@@ -81,6 +81,8 @@ func FuncCall[T interface{}](caller interface{}, params ...interface{}) (T, erro
 		if res != nil {
 			result = res[0].Interface().(T)
 		}
+	} else {
+		result = *new(T)
 	}
 	return result, err
 }

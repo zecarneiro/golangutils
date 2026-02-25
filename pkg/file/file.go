@@ -111,7 +111,7 @@ func ReadJsonFile[T any](jsonFile string) (T, error) {
 	jsonFile = ResolvePath(jsonFile)
 	file, err := os.Open(jsonFile)
 	if err != nil {
-		return data, fmt.Errorf("failed to open the file: %w", err)
+		return *new(T), fmt.Errorf("failed to open the file: %w", err)
 	}
 	defer file.Close()
 	reader := bufio.NewReader(file)

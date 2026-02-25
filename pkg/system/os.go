@@ -2,10 +2,12 @@ package system
 
 import (
 	"fmt"
+	"runtime"
+	"slices"
+	"strings"
+
 	"golangutils/pkg/common"
 	"golangutils/pkg/enums"
-	"runtime"
-	"strings"
 )
 
 func GetOsType() enums.OSType {
@@ -14,6 +16,10 @@ func GetOsType() enums.OSType {
 		osType = &val
 	}
 	return *osType
+}
+
+func IsOsType(osTypeList []enums.OSType) bool {
+	return slices.Contains(osTypeList, GetOsType())
 }
 
 func GetUnknowOS() string {

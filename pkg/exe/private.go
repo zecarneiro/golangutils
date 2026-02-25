@@ -1,12 +1,10 @@
 package exe
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 
-	"golangutils/pkg/console"
 	"golangutils/pkg/enums"
 	"golangutils/pkg/file"
 	"golangutils/pkg/logger"
@@ -38,26 +36,23 @@ func printCommand(command models.Command) {
 	}
 }
 
-func detectShell(command models.Command) (models.Command, error) {
-	switch platform.GetPlatform() {
-	// ───── Linux + macOS → bash or sh ─────
-	case enums.Darwin, enums.Linux, enums.Unix:
-		cmd := shell.BuildOthersCmd(command.Cmd, command.Args, command.IsInteractiveShell)
-		command.Cmd = cmd.Cmd
-		command.Args = cmd.Args
-		return command, nil
-	// ───── Windows → PowerShell or CMD ─────
-	case enums.Windows:
-		// Prefer PowerShell if available
-		cmd := shell.BuildPowershellCmd(command.Cmd, command.Args)
-		if _, err := console.Which(cmd.Cmd); err != nil {
-			cmd = shell.BuildPromptCmd(command.Cmd, command.Args)
+func detectShell(command models.Command) models.Command {
+	if command.ShellToUse == nil {
+		if platform.IsWindows() || platform.IsLinux() {
+			cmd := shell.BuildShellCmdByShell(command.Cmd, command.Args, false, logic.Ternary(platform.IsWindows(), enums.PowerShell, enums.Bash))
+			command.Cmd = cmd.Cmd
+			command.Args = cmd.Args
+		} else {
+			cmd := shell.BuildShellCmd(command.Cmd, command.Args, command.IsInteractiveShell)
+			command.Cmd = cmd.Cmd
+			command.Args = cmd.Args
 		}
-		command.Cmd = cmd.Cmd
-		command.Args = cmd.Args
-		return command, nil
+		return command
 	}
-	return command, errors.New(platform.UnsupportedMSG)
+	cmd := shell.BuildShellCmdByShell(command.Cmd, command.Args, command.IsInteractiveShell, *command.ShellToUse)
+	command.Cmd = cmd.Cmd
+	command.Args = cmd.Args
+	return command
 }
 
 func buildNonShellCmd(command models.Command) (models.Command, error) {
