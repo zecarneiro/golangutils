@@ -1,6 +1,9 @@
 package str
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 func StringReplaceAll(data string, replacer map[string]string) string {
 	newData := data
@@ -52,4 +55,18 @@ func DeleteLastChar(original string) string {
 func IsEmpty(data string) bool {
 	data = strings.Trim(data, " ")
 	return len(data) == 0 || data == " "
+}
+
+func GetInDoubleQuotes(data string) string {
+	if IsEmpty(data) {
+		return data
+	}
+	return fmt.Sprintf("\"%s\"", data)
+}
+
+func GetInSingleQuotes(data string) string {
+	if IsEmpty(data) {
+		return data
+	}
+	return fmt.Sprintf("'%s'", data)
 }

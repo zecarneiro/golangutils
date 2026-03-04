@@ -7,4 +7,5 @@ const (
 	ZshAllArgsVarStr        = BashAllArgsVarStr
 	KshAllArgsVarStr        = BashAllArgsVarStr
 	FishAllArgsVarStr       = "$argv"
+	UnsupportedMSG          = "Unsupported shell"
 )

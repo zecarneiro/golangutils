@@ -60,6 +60,14 @@ func Pause() {
 	PauseWithMsg("")
 }
 
+func WhichIgnoreError(cmd string) string {
+	bin, err := Which(cmd)
+	if err != nil {
+		return cmd
+	}
+	return bin
+}
+
 func Which(cmd string) (string, error) {
 	if str.IsEmpty(cmd) {
 		return "", nil

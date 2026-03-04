@@ -43,6 +43,33 @@ func OSName() string {
 	return osName
 }
 
+func OSVersion() string {
+	osVersion := common.GetUnknown("%s OS VERSION")
+	switch platform.GetPlatform() {
+	case enums.Windows:
+		cmd := exec.Command("powershell", "-Command", "Get-ComputerInfo | Select-Object OsVersion")
+		output, err := cmd.Output()
+		if err == nil && len(output) > 0 {
+			osVersion = strings.TrimSpace(string(output))
+		}
+	case enums.Linux:
+		alreadySet := false
+		file.ReadFileLineByLine("/etc/os-release", func(lineData string, err error) {
+			if strings.HasPrefix(lineData, "VERSION_ID=") && !alreadySet {
+				osVersion = strings.Trim(strings.TrimPrefix(lineData, "VERSION_ID="), "\"")
+				alreadySet = true
+			}
+		})
+	case enums.Darwin:
+		ver, _ := exec.Command("sw_vers", "-productVersion").Output()
+		osVersion = strings.TrimSpace(string(ver))
+	case enums.FreeBSD, enums.OpenBSD:
+		out, _ := exec.Command("uname", "-sr").Output()
+		osVersion = strings.TrimSpace(string(out))
+	}
+	return osVersion
+}
+
 func Reboot() error {
 	var cmd *exec.Cmd
 	if console.Confirm("Will be restart the PC. Continue?", true) {

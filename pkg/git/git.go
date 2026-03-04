@@ -52,7 +52,7 @@ func DownloadFromGithubRepo(owner string, repo string, version string, filename 
 	if err != nil {
 		return err
 	}
-	dstOutput = file.ResolvePath(dstOutput, filename)
+	dstOutput = file.JoinPath(dstOutput, filename)
 	err = netc.Download(url, dstOutput)
 	if err != nil {
 		logger.Error(err)

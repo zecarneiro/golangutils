@@ -13,7 +13,9 @@ import (
 )
 
 func ExecRealTime(command models.Command) error {
-	printCommand(command)
+	if command.Verbose {
+		printCommand(command)
+	}
 	fillCommand(&command)
 	if command.UseShell {
 		command = detectShell(command)
@@ -23,6 +25,9 @@ func ExecRealTime(command models.Command) error {
 			return err
 		}
 		command = cmd
+	}
+	if command.FullVerbose {
+		printCommand(command)
 	}
 	cmdResult := exec.Command(command.Cmd, command.Args...)
 	cmdResult.Env = getEnv(command)
@@ -34,7 +39,9 @@ func ExecRealTime(command models.Command) error {
 }
 
 func Exec(command models.Command) (string, error) {
-	printCommand(command)
+	if command.Verbose {
+		printCommand(command)
+	}
 	fillCommand(&command)
 	if command.UseShell {
 		command = detectShell(command)
@@ -44,6 +51,9 @@ func Exec(command models.Command) (string, error) {
 			return "", err
 		}
 		command = cmd
+	}
+	if command.FullVerbose {
+		printCommand(command)
 	}
 	cmdResult := exec.Command(command.Cmd, command.Args...)
 	cmdResult.Env = getEnv(command)
@@ -55,7 +65,7 @@ func Exec(command models.Command) (string, error) {
 	return "", err
 }
 
-func Chmod777(filepath string) error {
+func Chmod777(filepath string, verbose bool) error {
 	filepath = file.ResolvePath(filepath)
 	fileInfo := models.FileInfo{}
 	if file.IsDir(filepath) {
@@ -70,22 +80,21 @@ func Chmod777(filepath string) error {
 	} else {
 		return fmt.Errorf("%s given file: %s", common.Unknown, filepath)
 	}
-	if len(fileInfo.Files) > 0 || len(fileInfo.Directories) > 0 {
+	if verbose && (len(fileInfo.Files) > 0 || len(fileInfo.Directories) > 0) {
 		logger.Info("Set full permission for '" + filepath + "'")
 	}
-	var command models.Command
 	if platform.IsWindows() {
 		for _, data := range fileInfo.Files {
-			command.UseShell = true
-			command.Cmd = "Unblock-File"
-			command.Args = []string{"-Path", fmt.Sprintf("\"%s\"", data)}
-			ExecRealTime(command)
+			err := setFullAccessPowerShell(data)
+			if err != nil {
+				return err
+			}
 		}
 		for _, data := range fileInfo.Directories {
-			command.UseShell = true
-			command.Cmd = "Unblock-File"
-			command.Args = []string{"-Path", fmt.Sprintf("\"%s\"", data)}
-			ExecRealTime(command)
+			err := setFullAccessPowerShell(data)
+			if err != nil {
+				return err
+			}
 		}
 	} else if platform.IsLinux() {
 		for _, data := range fileInfo.Directories {

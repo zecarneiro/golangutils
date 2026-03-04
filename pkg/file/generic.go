@@ -4,20 +4,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golangutils/pkg/enums"
+	"golangutils/pkg/platform"
 	"golangutils/pkg/str"
 )
 
-func ResolvePath(path ...string) string {
-	if len(path) > 0 {
-		return filepath.FromSlash(JoinPath(path...))
-	}
-	return ""
+func ResolvePath(path string) string {
+	return filepath.FromSlash(path)
 }
 
 func JoinPath(elem ...string) string {
-	return filepath.Join(elem...)
+	return ResolvePath(filepath.Join(elem...))
 }
 
 func FileExist(file string) bool {
@@ -88,17 +87,64 @@ func Move(src string, dstBaseDir string) error {
 	}
 	basename := Basename(src)
 	if IsFile(src) {
-		err := CopyFile(src, ResolvePath(dstBaseDir, basename))
+		err := CopyFile(src, JoinPath(dstBaseDir, basename))
 		if err != nil {
 			return err
 		}
 		return DeleteFile(src)
 	} else if IsDir(src) {
-		err := CopyDir(src, ResolvePath(dstBaseDir, basename))
+		err := CopyDir(src, JoinPath(dstBaseDir, basename))
 		if err != nil {
 			return err
 		}
 		return DeleteDirectory(src)
 	}
 	return fmt.Errorf("%s: invalid type of file/dir", src)
+}
+
+func GetFullPath(path string) (string, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return path, err
+	}
+	absPath, err = filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return path, err
+	}
+	return absPath, nil
+}
+
+func GetRelativePath(absPath string, basePath string) (string, error) {
+	relPath := ResolvePath(absPath)
+	basePath = ResolvePath(basePath)
+	hasPrefix := false
+	if (platform.IsWindows() && strings.HasPrefix(relPath, basePath+"\\")) || strings.HasPrefix(relPath, basePath+"/") {
+		hasPrefix = true
+	}
+	if hasPrefix {
+		relativePath, err := filepath.Rel(basePath, relPath)
+		if err != nil {
+			return relPath, err
+		}
+		relPath = relativePath
+	}
+	return relPath, nil
+}
+
+func FindMountPoint(path string) (string, error) {
+	current := path
+	for {
+		parent := filepath.Dir(current)
+		if parent == current {
+			return current, nil
+		}
+
+		devCurrent, _ := GetDevice(current)
+		devParent, _ := GetDevice(parent)
+
+		if devCurrent != devParent {
+			return current, nil
+		}
+		current = parent
+	}
 }

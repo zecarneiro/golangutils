@@ -2,4 +2,7 @@ package system
 
 import "golangutils/pkg/enums"
 
-var osType *enums.OSType
+var (
+	NeedAdminAccessMsg = "Please, need admin access to continue!"
+	osType             *enums.OSType
+)

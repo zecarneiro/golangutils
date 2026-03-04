@@ -53,11 +53,13 @@ func VarValuesAsList(name string) []string {
 		return []string{}
 	}
 	parts := strings.Split(value, GetSliceSeparator())
-	result := []string{}
-	for _, part := range parts {
-		result = append(result, part)
-	}
+	result := append([]string{}, parts...)
 	return result
+}
+
+func ValuesAsStr(values []string) string {
+	valuesStr := slice.ArrayToStringBySep(values, GetSliceSeparator())
+	return valuesStr
 }
 
 func VarHasValue(name, expectedValue string) bool {

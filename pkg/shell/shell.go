@@ -10,6 +10,7 @@ import (
 	"golangutils/pkg/common"
 	"golangutils/pkg/console"
 	"golangutils/pkg/enums"
+	"golangutils/pkg/logic"
 	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
 	"golangutils/pkg/system"
@@ -98,17 +99,31 @@ func IsShell(shells []enums.ShellType) bool {
 	return slices.Contains(shells, GetCurrentShell())
 }
 
+func GetShellAllArgsVarStr() string {
+	switch GetCurrentShell() {
+	case enums.Bash, enums.Zsh, enums.Ksh:
+		return BashAllArgsVarStr
+	case enums.Fish:
+		return FishAllArgsVarStr
+	case enums.PowerShell:
+		return PowershellAllArgsVarStr
+	case enums.Cmd:
+		return CmdAllArgsVarStr
+	}
+	return ""
+}
+
 /* ----------------------------- POWERSHELL AREA ---------------------------- */
 func IsPowerShell() bool {
 	return GetCurrentShell().Equals(enums.PowerShell)
 }
 
 func GetPowershellCmd() string {
-	cmd, err := console.Which("powershell.exe")
+	cmd, err := console.Which(logic.Ternary(platform.IsWindows(), "powershell.exe", "powershell"))
 	if err == nil && cmd != "" {
 		return cmd
 	}
-	cmd, err = console.Which("pwsh.exe")
+	cmd, err = console.Which(logic.Ternary(platform.IsWindows(), "pwsh.exe", "pwsh"))
 	if err == nil && cmd != "" {
 		return cmd
 	}
@@ -125,11 +140,11 @@ func IsBash() bool {
 }
 
 func GetBashCmd() string {
-	cmd, err := console.Which("bash")
+	cmd, err := console.Which(logic.Ternary(platform.IsWindows(), "bash.exe", "bash"))
 	if err == nil && cmd != "" {
 		return cmd
 	}
-	cmd, err = console.Which("sh")
+	cmd, err = console.Which(logic.Ternary(platform.IsWindows(), "sh.exe", "sh"))
 	if err == nil && cmd != "" {
 		return cmd
 	}

@@ -4,13 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
+	"golangutils/pkg/common"
 	"golangutils/pkg/enums"
+	"golangutils/pkg/logic"
 	"golangutils/pkg/models"
 	"golangutils/pkg/obj"
 	"golangutils/pkg/str"
@@ -244,4 +248,63 @@ func GetFileEncoding(filePath string) (string, error) {
 	// and the declared Content-Type (empty string if unknown)
 	_, name, _ := charset.DetermineEncoding(data, "")
 	return name, nil
+}
+
+func Touch(filePath string) error {
+	if !IsFile(filePath) {
+		filestream, err := os.Create(filePath)
+		if err != nil {
+			return err
+		}
+		return filestream.Close()
+	}
+	return nil
+}
+
+func FileTextContains(filePath string, search string, caseInsensitive bool) (bool, error) {
+	if !IsFile(filePath) {
+		return false, errors.New("File not found")
+	}
+	data, err := ReadFile(filePath)
+	if err != nil {
+		return false, err
+	}
+	return str.Contains(data, search, caseInsensitive), nil
+}
+
+func DeleteFileLines(filePath string, match string, isRegex bool) error {
+	if !IsFile(filePath) {
+		return fmt.Errorf("Invalid given file: %s", filePath)
+	}
+	var errData error
+	data := ""
+	ReadFileLineByLine(filePath, func(line string, err error) {
+		errData = logic.Ternary(errData == nil, err, errData)
+		if errData == nil {
+			re := regexp.MustCompile(match)
+			canAdd := false
+			if isRegex {
+				if !re.MatchString(line) {
+					canAdd = true
+				}
+			} else {
+				if !strings.Contains(line, match) {
+					canAdd = true
+				}
+			}
+			if canAdd {
+				data += logic.Ternary(str.IsEmpty(data), line, common.Eol()+line)
+			}
+		}
+	})
+	if errData == nil {
+		fileConfig := models.FileWriterConfig{
+			File:        filePath,
+			Data:        data,
+			IsAppend:    false,
+			IsCreateDir: false,
+		}
+		errData = WriteFile(fileConfig)
+	}
+	return errData
 }
