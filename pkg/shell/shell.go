@@ -1,8 +1,10 @@
 package shell
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -10,11 +12,56 @@ import (
 	"golangutils/pkg/common"
 	"golangutils/pkg/console"
 	"golangutils/pkg/enums"
+	"golangutils/pkg/file"
 	"golangutils/pkg/logic"
 	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
+	"golangutils/pkg/str"
 	"golangutils/pkg/system"
 )
+
+func GetShellProfileFile(shellType enums.ShellType) string {
+	shells := map[enums.ShellType]string{
+		enums.Bash: file.JoinPath(system.HomeDir(), ".bashrc"),
+		enums.Zsh:  file.JoinPath(system.HomeDir(), ".zshrc"),
+		enums.Fish: file.JoinPath(system.HomeUserConfigDir(), "fish/config.fish"),
+		enums.Ksh:  file.JoinPath(system.HomeDir(), ".kshrc"),
+	}
+	if platform.IsWindows() {
+		shells[enums.PowerShell] = file.JoinPath(system.HomeDir(), "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1")
+		cmd := exec.Command(GetPowershellCmd(), "-NoProfile", "-Command", "$PROFILE")
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		err := cmd.Run()
+		if err == nil {
+			outputShellFile := strings.TrimSpace(out.String())
+			if !str.IsEmpty(outputShellFile) {
+				shells[enums.PowerShell] = outputShellFile
+			}
+		}
+	} else if platform.IsPlatform([]enums.PlatformType{enums.Linux, enums.Darwin}) {
+		shells[enums.PowerShell] = file.JoinPath(system.HomeUserConfigDir(), "powershell/Microsoft.PowerShell_profile.ps1")
+	}
+	shellFile := shells[shellType]
+	return logic.Ternary(str.IsEmpty(shellFile), string(common.Unknown), shellFile)
+}
+
+func GetCurrentShellSimple() enums.ShellType {
+	if !str.IsEmpty(os.Getenv("BASH_VERSION")) || os.Getenv("BASH_VERSION") == "msys" || !str.IsEmpty(os.Getenv("MSYSTEM")) {
+		return enums.Bash
+	} else if !str.IsEmpty(os.Getenv("ZSH_VERSION")) {
+		return enums.Zsh
+	} else if !str.IsEmpty(os.Getenv("KSH_VERSION")) {
+		return enums.Ksh
+	} else if !str.IsEmpty(os.Getenv("FISH_VERSION")) {
+		return enums.Fish
+	} else if !str.IsEmpty(os.Getenv("PSModulePath")) {
+		return enums.PowerShell
+	} else if !str.IsEmpty(os.Getenv("ComSpec")) {
+		return enums.Cmd
+	}
+	return enums.UnknownShell
+}
 
 func GetCurrentShell() enums.ShellType {
 	// isWindows := runtime.GOOS == "windows"
@@ -99,18 +146,16 @@ func IsShell(shells []enums.ShellType) bool {
 	return slices.Contains(shells, GetCurrentShell())
 }
 
+func IsShellSimple(shells []enums.ShellType) bool {
+	return slices.Contains(shells, GetCurrentShellSimple())
+}
+
 func GetShellAllArgsVarStr() string {
-	switch GetCurrentShell() {
-	case enums.Bash, enums.Zsh, enums.Ksh:
-		return BashAllArgsVarStr
-	case enums.Fish:
-		return FishAllArgsVarStr
-	case enums.PowerShell:
-		return PowershellAllArgsVarStr
-	case enums.Cmd:
-		return CmdAllArgsVarStr
-	}
-	return ""
+	return getShellAllArgsVarStrByShell(GetCurrentShell())
+}
+
+func GetShellAllArgsVarStrSimple() string {
+	return getShellAllArgsVarStrByShell(GetCurrentShellSimple())
 }
 
 /* ----------------------------- POWERSHELL AREA ---------------------------- */
@@ -118,13 +163,24 @@ func IsPowerShell() bool {
 	return GetCurrentShell().Equals(enums.PowerShell)
 }
 
+func IsPowerShellSimple() bool {
+	return GetCurrentShellSimple().Equals(enums.PowerShell)
+}
+
 func GetPowershellCmd() string {
+	shellType := enums.PowerShell
+	if existShellCmdFound(shellType) {
+		return getShellCmd(shellType)
+	}
 	cmd, err := console.Which(logic.Ternary(platform.IsWindows(), "powershell.exe", "powershell"))
 	if err == nil && cmd != "" {
+		updateShellCmdFound(shellType, cmd)
 		return cmd
 	}
 	cmd, err = console.Which(logic.Ternary(platform.IsWindows(), "pwsh.exe", "pwsh"))
+
 	if err == nil && cmd != "" {
+		updateShellCmdFound(shellType, cmd)
 		return cmd
 	}
 	return ""
@@ -139,13 +195,23 @@ func IsBash() bool {
 	return GetCurrentShell().Equals(enums.Bash)
 }
 
+func IsBashSimple() bool {
+	return GetCurrentShellSimple().Equals(enums.Bash)
+}
+
 func GetBashCmd() string {
+	shellType := enums.Bash
+	if existShellCmdFound(shellType) {
+		return getShellCmd(shellType)
+	}
 	cmd, err := console.Which(logic.Ternary(platform.IsWindows(), "bash.exe", "bash"))
 	if err == nil && cmd != "" {
+		updateShellCmdFound(shellType, cmd)
 		return cmd
 	}
 	cmd, err = console.Which(logic.Ternary(platform.IsWindows(), "sh.exe", "sh"))
 	if err == nil && cmd != "" {
+		updateShellCmdFound(shellType, cmd)
 		return cmd
 	}
 	return ""
@@ -160,9 +226,18 @@ func IsFish() bool {
 	return GetCurrentShell().Equals(enums.Fish)
 }
 
+func IsFishSimple() bool {
+	return GetCurrentShellSimple().Equals(enums.Fish)
+}
+
 func GetFishCmd() string {
+	shellType := enums.Fish
+	if existShellCmdFound(shellType) {
+		return getShellCmd(shellType)
+	}
 	cmd, err := console.Which("fish")
 	if err == nil && cmd != "" {
+		updateShellCmdFound(shellType, cmd)
 		return cmd
 	}
 	return ""
@@ -177,9 +252,18 @@ func IsZsh() bool {
 	return GetCurrentShell().Equals(enums.Zsh)
 }
 
+func IsZshSimple() bool {
+	return GetCurrentShellSimple().Equals(enums.Zsh)
+}
+
 func GetZshCmd() string {
+	shellType := enums.Zsh
+	if existShellCmdFound(shellType) {
+		return getShellCmd(shellType)
+	}
 	cmd, err := console.Which("zsh")
 	if err == nil && cmd != "" {
+		updateShellCmdFound(shellType, cmd)
 		return cmd
 	}
 	return ""
@@ -194,9 +278,18 @@ func IsKsh() bool {
 	return GetCurrentShell().Equals(enums.Ksh)
 }
 
+func IsKshSimple() bool {
+	return GetCurrentShellSimple().Equals(enums.Ksh)
+}
+
 func GetKshCmd() string {
+	shellType := enums.Ksh
+	if existShellCmdFound(shellType) {
+		return getShellCmd(shellType)
+	}
 	cmd, err := console.Which("ksh")
 	if err == nil && cmd != "" {
+		updateShellCmdFound(shellType, cmd)
 		return cmd
 	}
 	return ""
@@ -211,9 +304,18 @@ func IsCmd() bool {
 	return GetCurrentShell().Equals(enums.Cmd)
 }
 
+func IsCmdSimple() bool {
+	return GetCurrentShellSimple().Equals(enums.Cmd)
+}
+
 func GetPromptCMDCmd() string {
+	shellType := enums.Cmd
+	if existShellCmdFound(shellType) {
+		return getShellCmd(shellType)
+	}
 	cmd, err := console.Which("cmd.exe")
 	if err == nil && cmd != "" {
+		updateShellCmdFound(shellType, cmd)
 		return cmd
 	}
 	return ""
@@ -233,18 +335,36 @@ func BuildShellCmdByShell(cmd string, args []string, isInteractive bool, shellTy
 	if shellType != enums.UnknownShell {
 		hasShellType = true
 	}
-	if (!hasShellType && IsPowerShell()) || shellType == enums.PowerShell {
+	if (!hasShellType && IsPowerShellSimple()) || shellType == enums.PowerShell {
 		return buildPowershellCmd(cmd, args)
-	} else if (!hasShellType && IsBash()) || shellType == enums.Bash {
+	} else if (!hasShellType && IsBashSimple()) || shellType == enums.Bash {
 		return buildBashCmd(cmd, args, isInteractive)
-	} else if (!hasShellType && IsFish()) || shellType == enums.Fish {
+	} else if (!hasShellType && IsFishSimple()) || shellType == enums.Fish {
 		return buildFishCmd(cmd, args, isInteractive)
-	} else if (!hasShellType && IsZsh()) || shellType == enums.Zsh {
+	} else if (!hasShellType && IsZshSimple()) || shellType == enums.Zsh {
 		return buildZshCmd(cmd, args, isInteractive)
-	} else if (!hasShellType && IsKsh()) || shellType == enums.Ksh {
+	} else if (!hasShellType && IsKshSimple()) || shellType == enums.Ksh {
 		return buildKshCmd(cmd, args, isInteractive)
-	} else if (!hasShellType && IsCmd()) || shellType == enums.Cmd {
+	} else if (!hasShellType && IsCmdSimple()) || shellType == enums.Cmd {
 		return buildPromptCmd(cmd, args)
 	}
 	return buildDefault(cmd, args)
+}
+
+func GetShellCmd(shellType enums.ShellType) string {
+	switch shellType {
+	case enums.PowerShell:
+		return GetPowershellCmd()
+	case enums.Bash:
+		return GetBashCmd()
+	case enums.Zsh:
+		return GetZshCmd()
+	case enums.Fish:
+		return GetFishCmd()
+	case enums.Ksh:
+		return GetKshCmd()
+	case enums.Cmd:
+		return GetPromptCMDCmd()
+	}
+	return logic.Ternary(platform.IsWindows(), GetPowershellCmd(), GetBashCmd())
 }

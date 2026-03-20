@@ -1,5 +1,7 @@
 package shell
 
+import "golangutils/pkg/enums"
+
 const (
 	PowershellAllArgsVarStr = "$args"
 	CmdAllArgsVarStr        = "%*"
@@ -9,3 +11,5 @@ const (
 	FishAllArgsVarStr       = "$argv"
 	UnsupportedMSG          = "Unsupported shell"
 )
+
+var shellCmdFound map[enums.ShellType]string

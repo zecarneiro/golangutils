@@ -5,6 +5,7 @@ package system
 import (
 	"syscall"
 
+	"golangutils/pkg/enums"
 	"golangutils/pkg/platform"
 )
 
@@ -16,4 +17,11 @@ func IsAdmin() bool {
 		return r1 != 0
 	}
 	return false
+}
+
+func GetDesketopEnv() enums.DesktopEnvType {
+	if !platform.IsWindows() {
+		return enums.UnknownDE
+	}
+	return enums.WindowsDE
 }

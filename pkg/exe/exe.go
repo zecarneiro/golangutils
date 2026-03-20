@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"golangutils/pkg/common"
+	"golangutils/pkg/enums"
 	"golangutils/pkg/file"
 	"golangutils/pkg/logger"
 	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
+	"golangutils/pkg/shell"
+	"golangutils/pkg/str"
 )
 
 func ExecRealTime(command models.Command) error {
@@ -35,6 +39,9 @@ func ExecRealTime(command models.Command) error {
 	cmdResult.Stdout = os.Stdout
 	cmdResult.Stderr = os.Stderr
 	cmdResult.Stdin = os.Stdin
+	if command.IsAsync {
+		return cmdResult.Start()
+	}
 	return cmdResult.Run()
 }
 
@@ -60,7 +67,8 @@ func Exec(command models.Command) (string, error) {
 	cmdResult.Dir = command.Cwd
 	output, err := cmdResult.CombinedOutput()
 	if len(output) > 0 {
-		return string(output), err
+		outputStr := string(output)
+		return strings.TrimSpace(outputStr), err
 	}
 	return "", err
 }
@@ -109,9 +117,10 @@ func Chmod777(filepath string, verbose bool) error {
 				return err
 			}
 		}
-		return nil
+	} else {
+		return fmt.Errorf(common.NotImplementedYetMSG)
 	}
-	return fmt.Errorf(common.NotImplementedYetMSG)
+	return nil
 }
 
 func GetExecutable() (string, error) {
@@ -128,4 +137,32 @@ func GetExecutableDir() (string, error) {
 		return "", err
 	}
 	return file.Dirname(execPath), nil
+}
+
+func RunScriptShell(filePath string, shellType enums.ShellType, verbose bool, args ...string) error {
+	if !file.IsFile(filePath) {
+		return fmt.Errorf("Invalid given script '%s' to run", filePath)
+	}
+	if !shellType.IsValid() {
+		return fmt.Errorf("Invalid given shell '%s' to run", shellType.String())
+	}
+	cmd := models.Command{
+		Cmd:         shell.GetShellCmd(shellType),
+		FullVerbose: verbose,
+		UseShell:    false,
+	}
+	if str.IsEmpty(cmd.Cmd) {
+		return fmt.Errorf("RunScriptShell: Invalid shell command to run")
+	}
+	if shellType.Equals(enums.PowerShell) {
+		cmd.Args = append([]string{"-ExecutionPolicy", "Bypass", "-File", filePath}, args...)
+	} else {
+		permCmd := fmt.Sprintf("chmod +x \"%s\"", filePath)
+		err := ExecRealTime(models.Command{Cmd: permCmd, Verbose: verbose, UseShell: true})
+		if err != nil {
+			return err
+		}
+		cmd.Args = append([]string{fmt.Sprintf("\"%s\"", filePath)}, args...)
+	}
+	return ExecRealTime(cmd)
 }

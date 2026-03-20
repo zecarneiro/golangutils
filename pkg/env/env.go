@@ -1,39 +1,54 @@
 package env
 
 import (
-	"fmt"
 	"os"
 	"slices"
 	"strings"
 
 	"golangutils/pkg/models"
+	"golangutils/pkg/platform"
 	"golangutils/pkg/slice"
 	"golangutils/pkg/str"
 )
 
-var pathName = "PATH"
-
 func GetSliceSeparator() string {
-	// os.PathListSeparator é ';' no Windows e ':' no Linux/macOS
+	// os.PathListSeparator é ';' on Windows and ':' on Linux/macOS
 	return string(os.PathListSeparator)
 }
 
-func Get(name string) string {
-	return os.Getenv(name)
+func GetPathName() string {
+	if platform.IsWindows() {
+		return "Path"
+	}
+	return "PATH"
 }
 
-func Set(name string, value string) {
-	os.Setenv(name, value)
+func Exists(name string) bool {
+	_, exists := os.LookupEnv(name)
+	return exists
 }
 
-func Unset(name string) {
-	os.Unsetenv(name)
+func Get(name string) []string {
+	valuesStr := os.Getenv(name)
+	if str.IsEmpty(valuesStr) {
+		return []string{}
+	}
+	return ConvValuesArr(valuesStr)
+}
+
+func Set(name string, values []string) {
+	valuesStr := ConvValuesStr(slice.RemoveDuplicate(values))
+	os.Setenv(name, valuesStr)
 }
 
 func SetBulk(envs []models.EnvData) {
 	for _, data := range envs {
-		Set(data.Key, data.Value)
+		Set(data.Key, data.Values)
 	}
+}
+
+func Unset(name string) {
+	os.Unsetenv(name)
 }
 
 func UnsetBulk(envs []models.EnvData) {
@@ -42,31 +57,24 @@ func UnsetBulk(envs []models.EnvData) {
 	}
 }
 
-func VarExists(name string) bool {
-	_, exists := os.LookupEnv(name)
-	return exists
-}
-
-func VarValuesAsList(name string) []string {
-	value := Get(name)
-	if str.IsEmpty(value) {
-		return []string{}
-	}
-	parts := strings.Split(value, GetSliceSeparator())
-	result := append([]string{}, parts...)
-	return result
-}
-
-func ValuesAsStr(values []string) string {
+func ConvValuesStr(values []string) string {
 	valuesStr := slice.ArrayToStringBySep(values, GetSliceSeparator())
 	return valuesStr
 }
 
-func VarHasValue(name, expectedValue string) bool {
-	return slices.Contains(VarValuesAsList(name), strings.TrimSpace(expectedValue))
+func ConvValuesArr(values string) []string {
+	valuesArr := strings.Split(values, GetSliceSeparator())
+	valuesArr = slice.FilterArray(valuesArr, func(val string) bool {
+		return !str.IsEmpty(val)
+	})
+	return valuesArr
 }
 
-func VarList() map[string][]string {
+func HasValue(name, expectedValue string) bool {
+	return slices.Contains(Get(name), strings.TrimSpace(expectedValue))
+}
+
+func ListFullInfo() map[string][]string {
 	data := make(map[string][]string)
 	for _, env := range os.Environ() {
 		parts := strings.SplitN(env, "=", 2)
@@ -74,34 +82,23 @@ func VarList() map[string][]string {
 			continue
 		}
 		name := parts[0]
-		data[name] = VarValuesAsList(name)
+		data[name] = Get(name)
 	}
 	return data
 }
 
-func GetPath() []string {
-	return VarValuesAsList(pathName)
-}
-
-func GetPathStr() string {
-	return Get(pathName)
-}
-
 func InsertOnPath(value string) {
-	if !VarHasValue(pathName, value) {
-		currentPath := GetPathStr()
-		newPath := fmt.Sprintf("%s%s%s", value, GetSliceSeparator(), currentPath)
-		Set(pathName, newPath)
-	}
+	name := GetPathName()
+	values := Get(name)
+	values = append(values, value)
+	Set(name, values)
 }
 
 func RemoveOnPath(value string) {
-	if VarHasValue(pathName, value) {
-		listValues := GetPath()
-		newListValues := slice.FilterArray(listValues, func(val string) bool {
-			return val != value
-		})
-		newPath := slice.ArrayToStringBySep(newListValues, GetSliceSeparator())
-		Set(pathName, newPath)
-	}
+	name := GetPathName()
+	values := Get(name)
+	values = slice.FilterArray(values, func(val string) bool {
+		return val != value
+	})
+	Set(name, values)
 }

@@ -1,8 +1,6 @@
 package slice
 
 import (
-	"cmp"
-	"slices"
 	"strings"
 
 	"golangutils/pkg/conv"
@@ -38,18 +36,40 @@ func ObjArrayToString[T any](arr []T) string {
 	return ObjArrayToStringBySep(arr, " ")
 }
 
-func RemoveDuplicate[T cmp.Ordered](sliceList []T) []T {
+func RemoveDuplicateByOrder[T comparable](sliceList []T, isFromStart bool) []T {
+	seen := make(map[T]bool)
+	result := make([]T, 0, len(sliceList))
 	if len(sliceList) == 0 {
-		return nil
+		return result
 	}
-	newSliceList := make([]T, len(sliceList))
-	copy(newSliceList, sliceList)
-	slices.Sort(newSliceList)
-	return slices.Compact(newSliceList)
+	if isFromStart {
+		for _, val := range sliceList {
+			if !seen[val] {
+				result = append(result, val)
+				seen[val] = true
+			}
+		}
+	} else {
+		for i := len(sliceList) - 1; i >= 0; i-- {
+			val := sliceList[i]
+			if !seen[val] {
+				result = append([]T{val}, result...)
+				seen[val] = true
+			}
+		}
+	}
+	return result
+}
+
+func RemoveDuplicate[T comparable](sliceList []T) []T {
+	return RemoveDuplicateByOrder(sliceList, true)
 }
 
 func MapToValues[K comparable, V any](input map[K]V) []V {
 	values := make([]V, 0, len(input))
+	if input == nil {
+		return values
+	}
 	for _, v := range input {
 		values = append(values, v)
 	}
@@ -58,6 +78,9 @@ func MapToValues[K comparable, V any](input map[K]V) []V {
 
 func MapToKeys[K comparable, V any](input map[K]V) []K {
 	keys := make([]K, 0, len(input))
+	if input == nil {
+		return keys
+	}
 	for k := range input {
 		keys = append(keys, k)
 	}
@@ -65,11 +88,17 @@ func MapToKeys[K comparable, V any](input map[K]V) []K {
 }
 
 func MapExistKey[K comparable, V any](input map[K]V, searchKey K) bool {
+	if input == nil {
+		return false
+	}
 	_, exists := input[searchKey]
 	return exists
 }
 
 func MapExistValue[K comparable, V comparable](input map[K]V, searchValue V) bool {
+	if input == nil {
+		return false
+	}
 	for _, v := range input {
 		if v == searchValue {
 			return true

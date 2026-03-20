@@ -11,4 +11,5 @@ type Command struct {
 	ShellToUse                    enums.ShellType
 	EnvVars                       []string
 	IsInteractiveShell            bool
+	IsAsync                       bool // Only work for ExecRealTime
 }

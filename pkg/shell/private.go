@@ -1,7 +1,9 @@
 package shell
 
 import (
+	"golangutils/pkg/enums"
 	"golangutils/pkg/models"
+	"golangutils/pkg/slice"
 )
 
 func buildDefault(cmd string, args []string) models.Command {
@@ -77,4 +79,36 @@ func buildPromptCmd(cmd string, args []string) models.Command {
 		}
 	}
 	return buildDefault(cmd, args)
+}
+
+func getShellAllArgsVarStrByShell(shellType enums.ShellType) string {
+	switch shellType {
+	case enums.Bash, enums.Zsh, enums.Ksh:
+		return BashAllArgsVarStr
+	case enums.Fish:
+		return FishAllArgsVarStr
+	case enums.PowerShell:
+		return PowershellAllArgsVarStr
+	case enums.Cmd:
+		return CmdAllArgsVarStr
+	}
+	return ""
+}
+
+func updateShellCmdFound(shellType enums.ShellType, cmd string) {
+	if shellCmdFound == nil {
+		shellCmdFound = make(map[enums.ShellType]string)
+	}
+	shellCmdFound[shellType] = cmd
+}
+
+func existShellCmdFound(shellType enums.ShellType) bool {
+	return slice.MapExistKey(shellCmdFound, shellType)
+}
+
+func getShellCmd(shellType enums.ShellType) string {
+	if !existShellCmdFound(shellType) {
+		return ""
+	}
+	return shellCmdFound[shellType]
 }

@@ -49,7 +49,7 @@ func (p PlatformType) String() string {
 	if p.IsValid() {
 		return string(p)
 	}
-	return UnknownPlatform.String()
+	return string(UnknownPlatform)
 }
 
 func (p PlatformType) Equals(other PlatformType) bool {

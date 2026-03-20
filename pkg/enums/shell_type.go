@@ -50,7 +50,7 @@ func (s ShellType) String() string {
 	if s.IsValid() {
 		return string(s)
 	}
-	return UnknownShell.String()
+	return string(UnknownShell)
 }
 
 func (s ShellType) Equals(other ShellType) bool {

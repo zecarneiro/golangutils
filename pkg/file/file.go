@@ -32,19 +32,17 @@ func ReadFile(file string) (string, error) {
 	return string(body), err
 }
 
-func ReadFileLineByLine(filePath string, callback func(string, error)) {
+func ReadFileLineByLine(filePath string, callback func(string)) error {
 	file, err := os.Open(ResolvePath(filePath))
 	if err != nil {
-		callback("", err)
+		return err
 	}
+	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		line := scanner.Text()
-		callback(line, nil)
+		callback(scanner.Text())
 	}
-	if scanner.Err() != nil {
-		callback("", scanner.Err())
-	}
+	return scanner.Err()
 }
 
 func WriteFile(config models.FileWriterConfig) error {
@@ -276,35 +274,31 @@ func DeleteFileLines(filePath string, match string, isRegex bool) error {
 	if !IsFile(filePath) {
 		return fmt.Errorf("Invalid given file: %s", filePath)
 	}
-	var errData error
 	data := ""
-	ReadFileLineByLine(filePath, func(line string, err error) {
-		errData = logic.Ternary(errData == nil, err, errData)
-		if errData == nil {
+	err := ReadFileLineByLine(filePath, func(line string) {
+		canAdd := false
+		if isRegex {
 			re := regexp.MustCompile(match)
-			canAdd := false
-			if isRegex {
-				if !re.MatchString(line) {
-					canAdd = true
-				}
-			} else {
-				if !strings.Contains(line, match) {
-					canAdd = true
-				}
+			if !re.MatchString(line) {
+				canAdd = true
 			}
-			if canAdd {
-				data += logic.Ternary(str.IsEmpty(data), line, common.Eol()+line)
+		} else {
+			if !strings.Contains(line, match) {
+				canAdd = true
 			}
 		}
+		if canAdd {
+			data += logic.Ternary(str.IsEmpty(data), line, common.Eol()+line)
+		}
 	})
-	if errData == nil {
+	if err == nil {
 		fileConfig := models.FileWriterConfig{
 			File:        filePath,
 			Data:        data,
 			IsAppend:    false,
 			IsCreateDir: false,
 		}
-		errData = WriteFile(fileConfig)
+		err = WriteFile(fileConfig)
 	}
-	return errData
+	return err
 }

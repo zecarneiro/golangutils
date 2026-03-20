@@ -2,6 +2,8 @@ package platform
 
 import (
 	"golangutils/pkg/enums"
+	"golangutils/pkg/str"
+	"os"
 	"runtime"
 	"slices"
 )
@@ -32,4 +34,12 @@ func IsUnix() bool {
 
 func IsPlatform(platforms []enums.PlatformType) bool {
 	return slices.Contains(platforms, GetPlatform())
+}
+
+func GetUsername() string {
+	username := os.Getenv("username")
+	if str.IsEmpty(username) {
+		username = os.Getenv("USER")
+	}
+	return username
 }

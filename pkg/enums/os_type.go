@@ -1,6 +1,7 @@
 package enums
 
 import (
+	"fmt"
 	"golangutils/pkg/common"
 	"strings"
 )
@@ -17,13 +18,13 @@ const (
 
 func GetOSTypeFromValue(value string) OSType {
 	val := strings.ToLower(strings.TrimSpace(value))
-	if val == WindowsSO.String() || strings.HasPrefix(strings.ToLower(value), WindowsSO.String()) {
+	if val == WindowsSO.String() || strings.HasPrefix(val, WindowsSO.String()) || strings.HasPrefix(val, fmt.Sprintf("microsoft %s", WindowsSO.String())) {
 		return WindowsSO
-	} else if val == UbuntuSO.String() || strings.HasPrefix(strings.ToLower(value), UbuntuSO.String()) {
+	} else if val == UbuntuSO.String() || strings.HasPrefix(val, UbuntuSO.String()) {
 		return UbuntuSO
-	} else if val == PopOsSO.String() || strings.HasPrefix(strings.ToLower(value), PopOsSO.String()) {
+	} else if val == PopOsSO.String() || strings.HasPrefix(val, PopOsSO.String()) {
 		return PopOsSO
-	} else if val == LinuxMintSO.String() || strings.HasPrefix(strings.ToLower(value), LinuxMintSO.String()) {
+	} else if val == LinuxMintSO.String() || strings.HasPrefix(val, LinuxMintSO.String()) {
 		return LinuxMintSO
 	}
 	return UbuntuSO
@@ -42,7 +43,7 @@ func (p OSType) String() string {
 	if p.IsValid() {
 		return string(p)
 	}
-	return UbuntuSO.String()
+	return string(UbuntuSO)
 }
 
 func (p OSType) Equals(other OSType) bool {

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -11,6 +13,8 @@ import (
 	"golangutils/pkg/console"
 	"golangutils/pkg/enums"
 	"golangutils/pkg/file"
+	"golangutils/pkg/logger"
+	"golangutils/pkg/logic"
 	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
 )
@@ -19,14 +23,14 @@ func OSName() string {
 	osName := common.GetUnknown("%s OS NAME")
 	switch platform.GetPlatform() {
 	case enums.Windows:
-		cmd := exec.Command("powershell", "-Command", "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption")
+		cmd := exec.Command(getPwshCmd(), "-Command", "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption")
 		output, err := cmd.Output()
 		if err == nil && len(output) > 0 {
 			osName = strings.TrimSpace(string(output))
 		}
 	case enums.Linux:
 		alreadySet := false
-		file.ReadFileLineByLine("/etc/os-release", func(lineData string, err error) {
+		file.ReadFileLineByLine("/etc/os-release", func(lineData string) {
 			if strings.HasPrefix(lineData, "PRETTY_NAME=") && !alreadySet {
 				osName = strings.Trim(strings.TrimPrefix(lineData, "PRETTY_NAME="), "\"")
 				alreadySet = true
@@ -47,14 +51,14 @@ func OSVersion() string {
 	osVersion := common.GetUnknown("%s OS VERSION")
 	switch platform.GetPlatform() {
 	case enums.Windows:
-		cmd := exec.Command("powershell", "-Command", "Get-ComputerInfo | Select-Object OsVersion")
+		cmd := exec.Command(getPwshCmd(), "-Command", "Get-ComputerInfo | Select-Object OsVersion")
 		output, err := cmd.Output()
 		if err == nil && len(output) > 0 {
 			osVersion = strings.TrimSpace(string(output))
 		}
 	case enums.Linux:
 		alreadySet := false
-		file.ReadFileLineByLine("/etc/os-release", func(lineData string, err error) {
+		file.ReadFileLineByLine("/etc/os-release", func(lineData string) {
 			if strings.HasPrefix(lineData, "VERSION_ID=") && !alreadySet {
 				osVersion = strings.Trim(strings.TrimPrefix(lineData, "VERSION_ID="), "\"")
 				alreadySet = true
@@ -129,7 +133,7 @@ func GetParentProcessInfo(ppid int) (*models.ParentProcessInfo, error) {
 		}
 	case enums.Windows:
 		out, err := exec.Command(
-			"powershell",
+			getPwshCmd(),
 			"-Command",
 			fmt.Sprintf(
 				"Get-CimInstance Win32_Process -Filter 'ProcessId = %d' | Select-Object Name, ParentProcessId | ForEach-Object { \"$($_.Name),$($_.ParentProcessId)\" }",
@@ -171,4 +175,42 @@ func GetAncestralProcessInfo(currentPPid int) (*models.ParentProcessInfo, error)
 		currentPPid = ancestralProcess.PPid
 	}
 	return ancestralProcess, err
+}
+
+func IsDesktopEnv(desktopEnv enums.DesktopEnvType) bool {
+	currentDesktopEnv := GetDesketopEnv()
+	return currentDesktopEnv.Equals(desktopEnv)
+}
+
+func IsDesktopEnvs(desktopEnvs []enums.DesktopEnvType) bool {
+	currentDesktopEnv := GetDesketopEnv()
+	return slices.Contains(desktopEnvs, currentDesktopEnv)
+}
+
+func IsValidUserHomeDir(verbose bool) bool {
+	var status bool
+	homeDir := HomeDir()
+	homeDirBasename := file.Basename(homeDir)
+	if strings.Contains(homeDirBasename, " ") {
+		status = false
+	} else {
+		invalidRegex := `[!@#$%^&*(),?"":{}|<>=´]|[à-ü]|[À-Ü]`
+		re := regexp.MustCompile(invalidRegex)
+		status = logic.Ternary(re.MatchString(homeDirBasename), false, true)
+	}
+
+	if verbose && !status {
+		logger.Info(fmt.Sprintf("Your full home dir is: %s", homeDir))
+		logger.Info(fmt.Sprintf("Your home dir is: %s", homeDirBasename))
+		logger.Title("Usernames must")
+		logger.Prompt("Start with an alphabetic character")
+		logger.Prompt("Not contain empty spaces or @")
+		logger.Prompt("Contain only valid Unix Characters - letters, numbers, '-', '.', and '_'")
+		if platform.IsWindows() {
+			logger.Prompt("Length: 20 characters or fewer for Windows")
+			logger.Prompt("Be different from the device host name on Windows")
+			logger.Prompt("When setting for a Windows device, usernames can't end with a period (.) or else they will not appear on the device login screen")
+		}
+	}
+	return status
 }

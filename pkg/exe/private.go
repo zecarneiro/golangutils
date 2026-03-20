@@ -7,14 +7,12 @@ import (
 	"strings"
 
 	"golangutils/pkg/enums"
-	"golangutils/pkg/env"
 	"golangutils/pkg/file"
 	"golangutils/pkg/logger"
 	"golangutils/pkg/logic"
 	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
 	"golangutils/pkg/shell"
-	"golangutils/pkg/str"
 
 	"github.com/google/shlex"
 )
@@ -25,12 +23,12 @@ func fillCommand(command *models.Command) {
 }
 
 func getEnv(command models.Command) []string {
-	env := os.Environ()
-	env = append(env, "CLICOLOR_FORCE=1", "FORCE_COLOR=1")
+	envList := os.Environ()
+	envList = append(envList, "CLICOLOR_FORCE=1", "FORCE_COLOR=1")
 	if os.Getenv("TERM") == "" {
-		env = append(env, "TERM=xterm-256color")
+		envList = append(envList, "TERM=xterm-256color")
 	}
-	return append(env, command.EnvVars...)
+	return append(envList, command.EnvVars...)
 }
 
 func printCommand(command models.Command) {
@@ -59,27 +57,25 @@ func detectShell(command models.Command) models.Command {
 }
 
 func buildNonShellCmd(command models.Command) (models.Command, error) {
-	cmdParts, err := shlex.Split(command.Cmd)
-	if err != nil {
-		return command, err
+	if len(command.Args) == 0 {
+		cmdParts, err := shlex.Split(command.Cmd)
+		if err != nil {
+			return command, err
+		}
+		command.Cmd = cmdParts[0]
+		command.Args = append(cmdParts[1:], command.Args...)
 	}
-	command.Cmd = cmdParts[0]
-	command.Args = append(cmdParts[1:], command.Args...)
 	return command, nil
 }
 
 func setFullAccessPowerShell(filepath string) error {
-	username := env.Get("username")
-	if str.IsEmpty(username) {
-		username = env.Get("USER")
-	}
 	script := fmt.Sprintf(`
 $acl = Get-Acl -Path "%s"
 $rule = [security.accesscontrol.filesystemaccessrule]::new("%s", "FullControl", "Allow")
 $acl.AddAccessRule($rule)
 $acl | Set-Acl
-`, filepath, username)
-	cmd := exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-Command", script)
+`, filepath, platform.GetUsername())
+	cmd := exec.Command(shell.GetPowershellCmd(), "-ExecutionPolicy", "Bypass", "-Command", script)
 	err := cmd.Run()
 	if err != nil {
 		return err
