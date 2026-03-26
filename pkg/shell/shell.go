@@ -60,11 +60,10 @@ func GetCurrentShellSimple() enums.ShellType {
 	} else if !str.IsEmpty(os.Getenv("ComSpec")) {
 		return enums.Cmd
 	}
-	return enums.UnknownShell
+	return GetCurrentShell()
 }
 
 func GetCurrentShell() enums.ShellType {
-	// isWindows := runtime.GOOS == "windows"
 	ppid := os.Getppid()
 
 	// 1) Parent process (best-effort)
@@ -111,7 +110,7 @@ func GetCurrentShell() enums.ShellType {
 		}
 	}
 	// Unknown
-	return common.Unknown
+	return enums.UnknownShell
 }
 
 func GetAncestralShell(currentPPid int) enums.ShellType {

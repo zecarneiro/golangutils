@@ -27,7 +27,7 @@ func GetOSTypeFromValue(value string) OSType {
 	} else if val == LinuxMintSO.String() || strings.HasPrefix(val, LinuxMintSO.String()) {
 		return LinuxMintSO
 	}
-	return UbuntuSO
+	return UnknownSO
 }
 
 func (p OSType) IsValid() bool {
