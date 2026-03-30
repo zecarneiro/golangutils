@@ -14,14 +14,16 @@ import (
 	"golangutils/pkg/obj"
 )
 
-func GithubGetLatestVersionRepo(owner string, repo string, isLatest bool) (models.GitRelease, error) {
+func GithubGetLatestVersionRepo(owner string, repo string, isLatest bool, verbose bool) (models.GitRelease, error) {
 	var release models.GitRelease
 	urlsufix := "/latest"
 	if !isLatest {
 		urlsufix = ""
 	}
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases%s", owner, repo, urlsufix)
-	logger.Info("Get Latest git version from url: " + url)
+	if verbose {
+		logger.Info("Get Latest git version from url: " + url)
+	}
 	myClient := &http.Client{Timeout: 10 * time.Second}
 	resp, err := myClient.Get(url)
 	if err != nil {
