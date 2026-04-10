@@ -3,6 +3,7 @@ package str
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 func StringReplaceAll(data string, replacer map[string]string) string {
@@ -69,4 +70,25 @@ func GetInSingleQuotes(data string) string {
 		return data
 	}
 	return fmt.Sprintf("'%s'", data)
+}
+
+func ToCamelCase(data string, keepFirstWord bool) string {
+	words := strings.Fields(data)
+	if len(words) <= 1 {
+		return data
+	}
+	newWord := ""
+	for index, word := range words {
+		if index == 0 {
+			if !keepFirstWord {
+				word = strings.ToLower(word)
+			}
+		} else {
+			runes := []rune(word)
+			runes[0] = unicode.ToUpper(runes[0])
+			word = string(runes)
+		}
+		newWord = fmt.Sprintf("%s%s", newWord, word)
+	}
+	return newWord
 }
