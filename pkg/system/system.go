@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"os/user"
 	"regexp"
 	"slices"
 	"strconv"
@@ -213,4 +214,10 @@ func IsValidUserHomeDir(verbose bool) bool {
 		}
 	}
 	return status
+}
+
+func UserInfo() user.User {
+	currentUser, err := user.Current()
+	logic.ProcessError(err)
+	return *currentUser
 }
