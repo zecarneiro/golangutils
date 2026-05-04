@@ -1,9 +1,11 @@
 package slice
 
 import (
+	"fmt"
 	"strings"
 
 	"golangutils/pkg/conv"
+	"golangutils/pkg/str"
 )
 
 func FilterArray[T any](array []T, fun func(T) bool) []T {
@@ -111,8 +113,8 @@ func IsMapEmpty[K comparable, V any](input map[K]V) bool {
 	return len(input) == 0
 }
 
-func ConcatMap[T comparable](map1, map2 map[T]interface{}) map[T]interface{} {
-	result := make(map[T]interface{})
+func ConcatMap[T comparable](map1, map2 map[T]any) map[T]any {
+	result := make(map[T]any)
 	for k, v := range map1 {
 		result[k] = v
 	}
@@ -120,4 +122,24 @@ func ConcatMap[T comparable](map1, map2 map[T]interface{}) map[T]interface{} {
 		result[k] = v
 	}
 	return result
+}
+
+func RemoveAllEmpty(input []string) []string {
+	newInput := []string{}
+	for _, data := range input {
+		if !str.IsEmpty(data) {
+			newInput = append(newInput, data)
+		}
+	}
+	return newInput
+}
+
+func MapToString[T comparable, V any](input map[T]V) string {
+	data := ""
+	for k, v := range input {
+		if str.IsEmpty(data) {
+			data = fmt.Sprintf(`%s=%s`, conv.ToString(k), conv.ToString(v))
+		}
+	}
+	return data
 }
