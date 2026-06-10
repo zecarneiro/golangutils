@@ -20,61 +20,6 @@ import (
 	"golangutils/pkg/platform"
 )
 
-func OSName() string {
-	osName := common.GetUnknown("%s OS NAME")
-	switch platform.GetPlatform() {
-	case enums.Windows:
-		cmd := exec.Command(getPwshCmd(), "-Command", "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption")
-		output, err := cmd.Output()
-		if err == nil && len(output) > 0 {
-			osName = strings.TrimSpace(string(output))
-		}
-	case enums.Linux:
-		alreadySet := false
-		file.ReadFileLineByLine("/etc/os-release", func(lineData string) {
-			if strings.HasPrefix(lineData, "PRETTY_NAME=") && !alreadySet {
-				osName = strings.Trim(strings.TrimPrefix(lineData, "PRETTY_NAME="), "\"")
-				alreadySet = true
-			}
-		})
-	case enums.Darwin:
-		out, _ := exec.Command("sw_vers", "-productName").Output()
-		ver, _ := exec.Command("sw_vers", "-productVersion").Output()
-		osName = fmt.Sprintf("%s %s", strings.TrimSpace(string(out)), strings.TrimSpace(string(ver)))
-	case enums.FreeBSD, enums.OpenBSD:
-		out, _ := exec.Command("uname", "-sr").Output()
-		osName = strings.TrimSpace(string(out))
-	}
-	return osName
-}
-
-func OSVersion() string {
-	osVersion := common.GetUnknown("%s OS VERSION")
-	switch platform.GetPlatform() {
-	case enums.Windows:
-		cmd := exec.Command(getPwshCmd(), "-Command", "Get-ComputerInfo | Select-Object OsVersion")
-		output, err := cmd.Output()
-		if err == nil && len(output) > 0 {
-			osVersion = strings.TrimSpace(string(output))
-		}
-	case enums.Linux:
-		alreadySet := false
-		file.ReadFileLineByLine("/etc/os-release", func(lineData string) {
-			if strings.HasPrefix(lineData, "VERSION_ID=") && !alreadySet {
-				osVersion = strings.Trim(strings.TrimPrefix(lineData, "VERSION_ID="), "\"")
-				alreadySet = true
-			}
-		})
-	case enums.Darwin:
-		ver, _ := exec.Command("sw_vers", "-productVersion").Output()
-		osVersion = strings.TrimSpace(string(ver))
-	case enums.FreeBSD, enums.OpenBSD:
-		out, _ := exec.Command("uname", "-sr").Output()
-		osVersion = strings.TrimSpace(string(out))
-	}
-	return osVersion
-}
-
 func Reboot() error {
 	var cmd *exec.Cmd
 	if console.Confirm("Will be restart the PC. Continue?", true) {

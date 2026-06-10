@@ -39,3 +39,7 @@ func GetDesketopEnv() enums.DesktopEnvType {
 	}
 	return desktopEnv
 }
+
+func GetRegeditValueStr(regPath string, typeRegedit enums.RegistryType, keyName string) string {
+	return ""
+}
