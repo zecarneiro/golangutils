@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"regexp"
 
 	"golangutils/pkg/enums"
 )
@@ -33,9 +34,12 @@ func Error(data error) {
 	if data != nil {
 		dataStr := fmt.Sprintf("%v", data)
 		logToFile(dataStr, "error")
-		WithKeepLine(true)
-		print(fmt.Sprintf("[%s] ", FormatDataWithColor("ERROR", enums.Red.String())))
-		print(dataStr)
+		match, _ := regexp.MatchString(`^exit status \d+$`, dataStr)
+		if !match || (match && !ignoreExitStatusError) {
+			WithKeepLine(true)
+			print(fmt.Sprintf("[%s] ", FormatDataWithColor("ERROR", enums.Red.String())))
+			print(dataStr)
+		}
 	}
 }
 

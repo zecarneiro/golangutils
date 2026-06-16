@@ -15,3 +15,7 @@ func WithSeparatorLength(length int) {
 func WithLogFile(filepath string) {
 	logFile = filepath
 }
+
+func WithIgnoreExitStatusError(status bool) {
+	ignoreExitStatusError = status
+}

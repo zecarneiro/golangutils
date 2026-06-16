@@ -95,6 +95,11 @@ func WhichByCmds(cmds []string) (string, []error) {
 	return "", errors
 }
 
+func CmdExists(cmd string) bool {
+	bin := WhichIgnoreError(cmd)
+	return !str.IsEmpty(bin)
+}
+
 func WaitForAnyKeyPressed(message string) {
 	logger.WithKeepLine(true)
 	logger.Log(message)

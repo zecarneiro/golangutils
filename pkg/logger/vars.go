@@ -6,4 +6,6 @@ var (
 	keepLine        = false
 	headerLength    = 15
 	separatorLength = 40
+
+	ignoreExitStatusError = false
 )
