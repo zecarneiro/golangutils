@@ -1,9 +1,15 @@
 package netc
 
 import (
+	"golangutils/pkg/logic"
 	"net/http"
 	"time"
 )
+
+func HasInternetWithoutErr() bool {
+	status, err := HasInternet()
+	return logic.Ternary(err != nil, false, status)
+}
 
 func HasInternet() (bool, error) {
 	client := &http.Client{
