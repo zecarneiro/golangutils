@@ -36,9 +36,21 @@ func Get(name string) []string {
 	return ConvValuesArr(valuesStr)
 }
 
+func GetWithSingleValue(name string) string {
+	valueList := Get(name)
+	if len(valueList) > 0 {
+		return valueList[0]
+	}
+	return ""
+}
+
 func Set(name string, values []string) {
 	valuesStr := ConvValuesStr(slice.RemoveDuplicate(values))
 	os.Setenv(name, valuesStr)
+}
+
+func SetWithSingleValue(name string, value string) {
+	Set(name, []string{value})
 }
 
 func SetBulk(envs []models.EnvData) {

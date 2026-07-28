@@ -22,6 +22,7 @@ import (
 	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding/ianaindex"
 	"golang.org/x/text/transform"
+	"gopkg.in/yaml.v3"
 )
 
 func ReadFile(file string) (string, error) {
@@ -157,6 +158,34 @@ func WriteJsonFile(jsonFile string, data any, escapeHtml bool) error {
 	return WriteFile(fileConfig)
 }
 
+func ReadYamlFile[T any](yamlFile string) (T, error) {
+	var data T
+	yamlFileData, err := ReadFileInByte(yamlFile)
+	if err != nil {
+		return *new(T), err
+	}
+	err = yaml.Unmarshal(yamlFileData, &data)
+	if err != nil {
+		return *new(T), err
+	}
+	return data, nil
+}
+
+func WriteYamlFile(yamlFile string, data any) error {
+	dataConverted, err := yaml.Marshal(&data)
+	if err != nil {
+		return err
+	}
+	fileConfig := models.FileWriterConfig{
+		File:        ResolvePath(yamlFile),
+		Data:        string(dataConverted),
+		IsAppend:    false,
+		IsCreateDir: true,
+		WithUtf8BOM: false,
+	}
+	return WriteFile(fileConfig)
+}
+
 func CopyFile(src string, dst string) error {
 	var err error
 	var srcfd *os.File
@@ -205,6 +234,13 @@ func ReadFileInByte(filename string) ([]byte, error) {
 		return byteArr, err
 	}
 	return byteArr, nil
+}
+
+func IsFileExtension(data string, extension string) bool {
+	if str.IsEmpty(extension) {
+		return false
+	}
+	return strings.ToLower(FileExtension(data)) == extension
 }
 
 func FileExtension(data string) string {
