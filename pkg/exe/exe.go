@@ -65,7 +65,14 @@ func Exec(command models.Command) (string, error) {
 	cmdResult := exec.Command(command.Cmd, command.Args...)
 	cmdResult.Env = getEnv(command)
 	cmdResult.Dir = command.Cwd
-	output, err := cmdResult.CombinedOutput()
+	var err error
+	var output []byte
+	if command.IsAsync {
+		err = cmdResult.Start()
+		output = []byte{}
+	} else {
+		output, err = cmdResult.CombinedOutput()
+	}
 	if len(output) > 0 {
 		outputStr := string(output)
 		return strings.TrimSpace(outputStr), err

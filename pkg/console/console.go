@@ -121,3 +121,34 @@ func Clear() {
 		os.Stdout.WriteString("\x1b[H\x1b[2J")
 	}
 }
+
+func ReadUserInput(message string) string {
+	reader := bufio.NewReader(os.Stdin)
+	if !str.IsEmpty(message) {
+		fmt.Printf(`%s: `, message)
+	}
+	userInput, err := reader.ReadString('\n')
+	if err != nil {
+		return err.Error()
+	}
+	return strings.TrimSpace(userInput)
+}
+
+func ReadBashUserInput(message string) string {
+	bashPath := WhichIgnoreError("bash")
+	script := `read -e user_input; echo "$user_input"`
+	if str.IsEmpty(bashPath) {
+		bashPath = "/bin/bash"
+	}
+	if !str.IsEmpty(message) {
+		fmt.Printf(`%s: `, message)
+	}
+	cmdResult := exec.Command(bashPath, "-c", script)
+	cmdResult.Stdin = os.Stdin
+	cmdResult.Stderr = os.Stderr
+	output, err := cmdResult.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
