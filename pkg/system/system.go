@@ -18,23 +18,43 @@ import (
 	"golangutils/pkg/logic"
 	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
+	"golangutils/pkg/str"
+	"golangutils/pkg/timec"
 )
 
 func Reboot() error {
-	var cmd *exec.Cmd
 	if console.Confirm("Will be restart the PC. Continue?", true) {
-		shutdownCmd, err := console.Which("shutdown")
-		if err != nil {
-			return err
+		shutdownCmdStr := "shutdown"
+		shutdownCmd, _ := console.Which(shutdownCmdStr)
+		if !str.IsEmpty(shutdownCmd) {
+			logger.Info(fmt.Sprintf(`Founded %s: %s`, shutdownCmdStr, shutdownCmd))
+			timec.Sleep(1)
+			if platform.IsWindows() {
+				return exec.Command(shutdownCmd, "/r", "/t", "0", "/f").Run()
+			} else if platform.IsLinux() || platform.IsDarwin() {
+				err := exec.Command("sudo", shutdownCmd, "-r", "now").Run()
+				if err != nil {
+					if platform.IsLinux() {
+						systemctlCmdStr := "systemctl"
+						systemctlCmd, _ := console.Which(systemctlCmdStr)
+						logger.Error(fmt.Errorf(`Failed to run: %s`, shutdownCmd))
+						logger.Info(fmt.Sprintf(`Trying %s`, systemctlCmdStr))
+						timec.Sleep(1)
+						if !str.IsEmpty(shutdownCmd) {
+							logger.Info(fmt.Sprintf(`Founded %s: %s`, shutdownCmdStr, shutdownCmd))
+							err = exec.Command("sudo", systemctlCmd, "reboot", "-i").Run()
+						} else {
+							return fmt.Errorf("Not found %s", systemctlCmdStr)
+						}
+					}
+					return err
+				}
+			} else {
+				return errors.New(common.NotImplementedYetMSG)
+			}
+		} else {
+			return fmt.Errorf("Not found %s", shutdownCmdStr)
 		}
-		if platform.IsWindows() {
-			cmd = exec.Command(shutdownCmd, "/r", "/t", "0", "/f")
-		} else if platform.IsLinux() {
-			cmd = exec.Command("sudo", shutdownCmd, "-r", "now")
-		} else if platform.IsDarwin() {
-			return errors.New(common.NotImplementedYetMSG)
-		}
-		return cmd.Run()
 	}
 	return nil
 }
