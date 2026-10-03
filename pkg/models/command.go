@@ -12,4 +12,5 @@ type Command struct {
 	EnvVars                       []string
 	IsInteractiveShell            bool
 	IsAsync                       bool // Only work for ExecRealTime
+	Background                    bool // Command will run in backgound. If need user interraction or something like that, set false
 }

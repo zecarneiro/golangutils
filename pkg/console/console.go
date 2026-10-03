@@ -7,9 +7,9 @@ import (
 	"os/exec"
 	"strings"
 
+	"golangutils/pkg/common"
 	"golangutils/pkg/logger"
 	"golangutils/pkg/logic"
-	"golangutils/pkg/models"
 	"golangutils/pkg/platform"
 	"golangutils/pkg/str"
 )
@@ -107,17 +107,22 @@ func WaitForAnyKeyPressed(message string) {
 }
 
 func Clear() {
-	command := models.Command{}
+	var cmd *exec.Cmd
+	var err error
 	if platform.IsWindows() {
-		command.Cmd = "cmd"
-		command.Args = []string{"/c", "cls"}
+		cmd = exec.Command("cmd", "/c", "cls")
 	} else if platform.IsLinux() {
-		command.Cmd = "clear"
+		cmd = exec.Command("clear")
+	} else {
+		// Fallback for others systems using ANSI
+		os.Stdout.WriteString("\x1b[H\x1b[2J")
 	}
-	cmd := exec.Command(command.Cmd, command.Args...)
-	cmd.Stdout = os.Stdout
-	err := cmd.Run()
-	if err != nil {
+	if cmd != nil {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+	}
+	if err != nil || cmd == nil {
 		os.Stdout.WriteString("\x1b[H\x1b[2J")
 	}
 }
@@ -143,7 +148,7 @@ func ReadBashUserInput(message string) string {
 	if !str.IsEmpty(message) {
 		fmt.Printf(`%s: `, message)
 	}
-	cmdResult := exec.Command(bashPath, "-c", script)
+	cmdResult := common.PrepareExecCommand(exec.Command(bashPath, "-c", script), false)
 	cmdResult.Stdin = os.Stdin
 	cmdResult.Stderr = os.Stderr
 	output, err := cmdResult.Output()

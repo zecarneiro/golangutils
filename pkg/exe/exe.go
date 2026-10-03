@@ -33,7 +33,7 @@ func ExecRealTime(command models.Command) error {
 	if command.FullVerbose {
 		printCommand(command)
 	}
-	cmdResult := exec.Command(command.Cmd, command.Args...)
+	cmdResult := common.PrepareExecCommand(exec.Command(command.Cmd, command.Args...), command.Background)
 	cmdResult.Env = getEnv(command)
 	cmdResult.Dir = command.Cwd
 	cmdResult.Stdout = os.Stdout
@@ -62,7 +62,7 @@ func Exec(command models.Command) (string, error) {
 	if command.FullVerbose {
 		printCommand(command)
 	}
-	cmdResult := exec.Command(command.Cmd, command.Args...)
+	cmdResult := common.PrepareExecCommand(exec.Command(command.Cmd, command.Args...), command.Background)
 	cmdResult.Env = getEnv(command)
 	cmdResult.Dir = command.Cwd
 	var err error

@@ -1,8 +1,16 @@
 package ui
 
 import (
+	"fmt"
+	"golangutils/pkg/file"
 	"golangutils/pkg/models"
+
+	"github.com/ncruces/zenity"
 )
+
+func notify(title string, message string, icon string) error {
+	return zenity.Notify(message, zenity.Title(title), zenity.Icon(icon))
+}
 
 func InfoNofity(message string, icon string) error {
 	return notify("Information", message, icon)
@@ -20,22 +28,72 @@ func OkNofity(message string, icon string) error {
 	return notify("Success", message, icon)
 }
 
+func SelectFileWithFilters(title string, filters zenity.FileFilters) models.Response[string] {
+	response := models.Response[string]{Data: "", Error: nil}
+	selectedFilePath, err := zenity.SelectFile(zenity.Title(title), filters)
+	if err != nil {
+		response.Error = err
+	} else {
+		if file.IsFile(selectedFilePath) {
+			response.Data = selectedFilePath
+		} else {
+			response.Error = fmt.Errorf(`Accept file only`)
+		}
+	}
+	return response
+}
+
 func SelectFile(title string) models.Response[string] {
-	return selectDialog(title, true)
+	return SelectFileWithFilters(title, zenity.FileFilters{{Name: "All Files", Patterns: []string{"*"}}})
 }
 
 func SelectFolder(title string) models.Response[string] {
-	return selectDialog(title, false)
+	response := models.Response[string]{Data: "", Error: nil}
+	selectedFolderPath, err := zenity.SelectFile(zenity.Title(title), zenity.Directory())
+	if err != nil {
+		response.Error = err
+	} else {
+		if file.IsDir(selectedFolderPath) {
+			response.Data = selectedFolderPath
+		} else {
+			response.Error = fmt.Errorf(`Accept directory only`)
+		}
+	}
+	return response
 }
 
 func InfoDialog(title string, message string) error {
-	return dialogBox(title, message, typeInfo)
+	return zenity.Info(message, zenity.Title(title))
 }
 
 func WarnDialog(title string, message string) error {
-	return dialogBox(title, message, typeWarning)
+	return zenity.Warning(message, zenity.Title(title))
 }
 
 func ErrorDialog(title string, message string) error {
-	return dialogBox(title, message, typeError)
+	return zenity.Error(message, zenity.Title(title))
+}
+
+func SelectList(title string, message string, entries []string) models.Response[string] {
+	response := models.Response[string]{Data: "", Error: nil}
+	selectedEntry, err := zenity.List(message, entries, zenity.Title(title),
+		zenity.DisallowEmpty(), // User must select a entry before to exit or can cancel
+	)
+	if err != nil {
+		response.Error = err
+	} else {
+		response.Data = selectedEntry
+	}
+	return response
+}
+
+func MultiSelectList(title string, message string, entries []string) models.Response[[]string] {
+	response := models.Response[[]string]{Data: []string{}, Error: nil}
+	selectedEntries, err := zenity.ListMultiple(message, entries, zenity.Title(title), zenity.CheckList())
+	if err != nil {
+		response.Error = err
+	} else {
+		response.Data = selectedEntries
+	}
+	return response
 }

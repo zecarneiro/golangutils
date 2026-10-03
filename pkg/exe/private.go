@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"golangutils/pkg/common"
 	"golangutils/pkg/enums"
 	"golangutils/pkg/file"
 	"golangutils/pkg/logger"
@@ -75,7 +76,7 @@ $rule = [security.accesscontrol.filesystemaccessrule]::new("%s", "FullControl", 
 $acl.AddAccessRule($rule)
 $acl | Set-Acl
 `, filepath, platform.GetUsername())
-	cmd := exec.Command(shell.GetPowershellCmd(), "-ExecutionPolicy", "Bypass", "-Command", script)
+	cmd := common.PrepareExecCommand(exec.Command(shell.GetPowershellCmd(), "-ExecutionPolicy", "Bypass", "-Command", script), true)
 	err := cmd.Run()
 	if err != nil {
 		return err

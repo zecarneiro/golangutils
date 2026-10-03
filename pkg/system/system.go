@@ -30,9 +30,9 @@ func Reboot() error {
 			logger.Info(fmt.Sprintf(`Founded %s: %s`, shutdownCmdStr, shutdownCmd))
 			timec.Sleep(1)
 			if platform.IsWindows() {
-				return exec.Command(shutdownCmd, "/r", "/t", "0", "/f").Run()
+				return common.PrepareExecCommand(exec.Command(shutdownCmd, "/r", "/t", "0", "/f"), true).Run()
 			} else if platform.IsLinux() || platform.IsDarwin() {
-				err := exec.Command("sudo", shutdownCmd, "-r", "now").Run()
+				err := common.PrepareExecCommand(exec.Command("sudo", shutdownCmd, "-r", "now"), true).Run()
 				if err != nil {
 					if platform.IsLinux() {
 						systemctlCmdStr := "systemctl"
@@ -42,7 +42,7 @@ func Reboot() error {
 						timec.Sleep(1)
 						if !str.IsEmpty(shutdownCmd) {
 							logger.Info(fmt.Sprintf(`Founded %s: %s`, shutdownCmdStr, shutdownCmd))
-							err = exec.Command("sudo", systemctlCmd, "reboot", "-i").Run()
+							err = common.PrepareExecCommand(exec.Command("sudo", systemctlCmd, "reboot", "-i"), true).Run()
 						} else {
 							return fmt.Errorf("Not found %s", systemctlCmdStr)
 						}
@@ -67,9 +67,9 @@ func Shutdown() error {
 			return err
 		}
 		if platform.IsWindows() {
-			cmd = exec.Command(shutdownCmd, "/s", "/t", "0")
+			cmd = common.PrepareExecCommand(exec.Command(shutdownCmd, "/s", "/t", "0"), true)
 		} else if platform.IsLinux() {
-			cmd = exec.Command("sudo", shutdownCmd, "-h", "now")
+			cmd = common.PrepareExecCommand(exec.Command("sudo", shutdownCmd, "-h", "now"), true)
 		} else if platform.IsDarwin() {
 			return errors.New(common.NotImplementedYetMSG)
 		}
@@ -82,7 +82,7 @@ func GetParentProcessInfo(ppid int) (*models.ParentProcessInfo, error) {
 	var parentInfo *models.ParentProcessInfo
 	switch platform.GetPlatform() {
 	case enums.Linux, enums.Darwin, enums.Unix:
-		out, err := exec.Command("ps", "-p", strconv.Itoa(ppid), "-o", "ppid=,comm=").Output()
+		out, err := common.PrepareExecCommand(exec.Command("ps", "-p", strconv.Itoa(ppid), "-o", "ppid=,comm="), true).Output()
 		if err != nil {
 			return nil, err
 		} else {
@@ -98,14 +98,14 @@ func GetParentProcessInfo(ppid int) (*models.ParentProcessInfo, error) {
 			}
 		}
 	case enums.Windows:
-		out, err := exec.Command(
-			getPwshCmd(),
+		args := []string{
 			"-Command",
 			fmt.Sprintf(
 				"Get-CimInstance Win32_Process -Filter 'ProcessId = %d' | Select-Object Name, ParentProcessId | ForEach-Object { \"$($_.Name),$($_.ParentProcessId)\" }",
 				ppid,
 			),
-		).Output()
+		}
+		out, err := common.PrepareExecCommand(exec.Command(getPwshCmd(), args...), true).Output()
 		if err != nil {
 			return parentInfo, err
 		}

@@ -19,7 +19,7 @@ func OSName() string {
 	osName := common.GetUnknown("%s OS NAME")
 	switch platform.GetPlatform() {
 	case enums.Windows:
-		cmd := exec.Command(getPwshCmd(), "-Command", "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption")
+		cmd := common.PrepareExecCommand(exec.Command(getPwshCmd(), "-Command", "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption"), true)
 		output, err := cmd.Output()
 		if err == nil && len(output) > 0 {
 			osName = strings.TrimSpace(string(output))
@@ -33,11 +33,11 @@ func OSName() string {
 			}
 		})
 	case enums.Darwin:
-		out, _ := exec.Command("sw_vers", "-productName").Output()
-		ver, _ := exec.Command("sw_vers", "-productVersion").Output()
+		out, _ := common.PrepareExecCommand(exec.Command("sw_vers", "-productName"), true).Output()
+		ver, _ := common.PrepareExecCommand(exec.Command("sw_vers", "-productVersion"), true).Output()
 		osName = fmt.Sprintf("%s %s", strings.TrimSpace(string(out)), strings.TrimSpace(string(ver)))
 	case enums.FreeBSD, enums.OpenBSD:
-		out, _ := exec.Command("uname", "-sr").Output()
+		out, _ := common.PrepareExecCommand(exec.Command("uname", "-sr"), true).Output()
 		osName = strings.TrimSpace(string(out))
 	}
 	return osName
@@ -67,10 +67,10 @@ func OSVersion() string {
 			}
 		})
 	case enums.Darwin:
-		ver, _ := exec.Command("sw_vers", "-productVersion").Output()
+		ver, _ := common.PrepareExecCommand(exec.Command("sw_vers", "-productVersion"), true).Output()
 		osVersion = strings.TrimSpace(string(ver))
 	case enums.FreeBSD, enums.OpenBSD:
-		out, _ := exec.Command("uname", "-sr").Output()
+		out, _ := common.PrepareExecCommand(exec.Command("uname", "-sr"), true).Output()
 		osVersion = strings.TrimSpace(string(out))
 	}
 	return osVersion

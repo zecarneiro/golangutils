@@ -29,7 +29,7 @@ func GetShellProfileFile(shellType enums.ShellType) string {
 	}
 	if platform.IsWindows() {
 		shells[enums.PowerShell] = file.JoinPath(system.HomeDir(), "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1")
-		cmd := exec.Command(GetPowershellCmd(), "-NoProfile", "-Command", "$PROFILE")
+		cmd := common.PrepareExecCommand(exec.Command(GetPowershellCmd(), "-NoProfile", "-Command", "$PROFILE"), true)
 		var out bytes.Buffer
 		cmd.Stdout = &out
 		err := cmd.Run()

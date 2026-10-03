@@ -1,7 +1,8 @@
 package common
 
 const (
-	None       = "NONE"
-	Unknown    = "UNKNOWN"
-	UnknownInt = -1
+	None                 = "NONE"
+	Unknown              = "UNKNOWN"
+	UnknownInt           = -1
+	NotImplementedYetMSG = "Not impplemented yet!"
 )
