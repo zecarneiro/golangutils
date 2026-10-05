@@ -19,10 +19,7 @@ func Confirm(message string, isNoDefault bool) bool {
 	if !isNoDefault {
 		yesNoMsg = "[Y/n]"
 	}
-	fmt.Printf("%s %s: ", message, yesNoMsg)
-	var response string
-	fmt.Scanln(&response)
-	response = strings.Trim(response, " ")
+	response := ReadUserInput(fmt.Sprintf("%s %s: ", message, yesNoMsg))
 	if response == "Y" || response == "y" {
 		return true
 	} else if len(response) == 0 {
@@ -127,16 +124,28 @@ func Clear() {
 	}
 }
 
-func ReadUserInput(message string) string {
-	reader := bufio.NewReader(os.Stdin)
-	if !str.IsEmpty(message) {
-		fmt.Printf(`%s: `, message)
+func ReadUserInputWithErrorMsg(prompt string, errMsg string) string {
+	if str.IsEmpty(errMsg) {
+		errMsg = "Error on read the input. Please, try again"
 	}
-	userInput, err := reader.ReadString('\n')
-	if err != nil {
-		return err.Error()
+	for {
+		if !str.IsEmpty(prompt) {
+			fmt.Print(prompt)
+		}
+		scanner := bufio.NewScanner(os.Stdin)
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				logger.Error(fmt.Errorf("%s: %w", errMsg, err))
+				continue
+			}
+			return ""
+		}
+		return strings.TrimSpace(scanner.Text())
 	}
-	return strings.TrimSpace(userInput)
+}
+
+func ReadUserInput(prompt string) string {
+	return ReadUserInputWithErrorMsg(prompt, "")
 }
 
 func ReadBashUserInput(message string) string {
